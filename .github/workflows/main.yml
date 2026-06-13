@@ -1,28 +1,12 @@
-name: Main CI/CD
+name: Deploy Rainbow
 
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
-      - name: Restore
-        run: dotnet restore Rapsodia.csproj
-      - name: Build
-        run: dotnet build Rapsodia.csproj --configuration Release --no-restore
-
   deploy:
-    needs: build
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
       - name: Deploy to OCI
@@ -32,7 +16,6 @@ jobs:
           username: ${{ secrets.REMOTE_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /var/www/abitab
+            cd /home/ubuntu/samsara
             git pull origin main
-            sudo systemctl restart abitab-*
-            sudo nginx -s reload
+            docker compose up -d --force-recreate
