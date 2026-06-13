@@ -1,0 +1,152 @@
+<div class="blue-card">
+    <div class="card-header">
+        <h3>ANALYZER</h3>
+        <span class="panel-tag">AI ANALYSIS</span>
+    </div>
+
+    <div class="blue-stats-strip">
+        <div class="strip-card"><span class="strip-label">TOTAL ANALYSES</span><span class="strip-value" id="stats-count">--</span><div class="progress-bar"><div class="progress-fill" style="width:100%;background:var(--accent-blue);"></div></div></div>
+        <div class="strip-card" onclick="showAnalyzerForm('single')">
+            <span class="strip-label">NEW ANALYSIS</span><span class="strip-value">+</span><div class="progress-bar"><div class="progress-fill" style="width:100%;background:var(--accent-green);"></div></div>
+        </div>
+        <div class="strip-card" onclick="showAnalyzerForm('batch')">
+            <span class="strip-label">BATCH ANALYSIS</span><span class="strip-value">MULTI</span><div class="progress-bar"><div class="progress-fill" style="width:100%;background:var(--accent-violet);"></div></div>
+        </div>
+    </div>
+
+    <div id="analyzer-form-panel" style="display:none;margin-bottom:16px;">
+        <div class="blue-card" style="background:var(--bg-main);">
+            <h4 id="analyzer-form-title" style="color:var(--text-white);margin:0 0 12px 0;font-size:11px;">NEW ANALYSIS</h4>
+            <form id="analyzer-form" hx-target="#analyzer-form-result" hx-swap="innerHTML">
+                <div id="single-fields">
+                    <div class="form-group"><label>TYPE</label><select name="type" class="form-control"><option value="vulnerability">VULNERABILITY</option><option value="incident">INCIDENT</option><option value="asset">ASSET</option><option value="network">NETWORK</option></select></div>
+                    <div class="form-group"><label>TARGET</label><input type="text" id="analyzer-target" name="target" class="form-control" autocomplete="off"></div>
+                </div>
+                <div id="batch-fields" style="display:none;">
+                    <div class="form-group"><label>TARGETS (ONE PER LINE)</label><textarea id="analyzer-targets" name="targets" class="form-control" rows="5"></textarea></div>
+                </div>
+                <div class="flex-row flex-end">
+                    <button type="button" class="action-btn btn-secondary" style="width:auto;" onclick="hideAnalyzerForm()">CANCEL</button>
+                    <button type="submit" class="action-btn btn-primary">ANALYZE</button>
+                </div>
+            </form>
+            <div id="analyzer-form-result" style="margin-top:8px;font-size:11px;"></div>
+        </div>
+    </div>
+
+    <table class="blue-table">
+        <thead><tr><th>ID</th><th>TYPE</th><th>TARGET</th><th>DATE</th><th>STATUS</th><th>ACTIONS</th></tr></thead>
+        <tbody id="analyzer-list" hx-get="http://localhost:5073/api/Analyzer/reports" hx-trigger="load, analyzerUpdated from:body" hx-headers='js:{"Authorization":"Bearer "+localStorage.getItem("abitat_token")}' hx-swap="none">
+            <tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">Loading analyses...</td></tr>
+        </tbody>
+    </table>
+
+    <div id="report-detail-panel" style="margin-top:16px;"></div>
+</div>
+
+<script>
+    var analyzerMode = 'single';
+
+    window.showAnalyzerForm = function(mode) {
+        analyzerMode = mode;
+        document.getElementById('analyzer-form-panel').style.display = 'block';
+        document.getElementById('analyzer-form').reset();
+        document.getElementById('analyzer-form-result').innerHTML = '';
+        
+        var targetInput = document.getElementById('analyzer-target');
+        var targetsArea = document.getElementById('analyzer-targets');
+
+        if (mode === 'batch') {
+            document.getElementById('analyzer-form-title').textContent = 'BATCH ANALYSIS';
+            document.getElementById('single-fields').style.display = 'none';
+            document.getElementById('batch-fields').style.display = 'block';
+            targetInput.removeAttribute('required');
+            targetsArea.setAttribute('required', 'true');
+            document.getElementById('analyzer-form').setAttribute('hx-post', 'http://localhost:5073/api/Analyzer/batch');
+        } else {
+            document.getElementById('analyzer-form-title').textContent = 'NEW ANALYSIS';
+            document.getElementById('single-fields').style.display = 'block';
+            document.getElementById('batch-fields').style.display = 'none';
+            targetsArea.removeAttribute('required');
+            targetInput.setAttribute('required', 'true');
+            document.getElementById('analyzer-form').setAttribute('hx-post', 'http://localhost:5073/api/Analyzer/analyze');
+        }
+        document.getElementById('analyzer-form').setAttribute('hx-headers', JSON.stringify({ 'Authorization': 'Bearer ' + localStorage.getItem('abitat_token'), 'Content-Type': 'application/json' }));
+        htmx.process(document.getElementById('analyzer-form'));
+    };
+
+    window.hideAnalyzerForm = function() {
+        document.getElementById('analyzer-form-panel').style.display = 'none';
+    };
+
+    document.getElementById('analyzer-form').addEventListener('htmx:beforeRequest', function(evt) {
+        var fd = new FormData(evt.detail.elt);
+        var obj = {};
+        if (analyzerMode === 'batch') {
+            var lines = fd.get('targets') || '';
+            obj.targets = lines.split('\n').map(function(t) { return t.trim(); }).filter(Boolean);
+        } else {
+            obj.type = fd.get('type');
+            obj.target = fd.get('target');
+        }
+        evt.detail.xhr.send(JSON.stringify(obj));
+        evt.preventDefault();
+    });
+
+    document.getElementById('analyzer-form').addEventListener('htmx:afterRequest', function(evt) {
+        var resp = JSON.parse(evt.detail.xhr.responseText);
+        if (resp.success) {
+            document.getElementById('analyzer-form-result').innerHTML = '<div style="color:var(--accent-green);font-weight:bold;">ANALYSIS COMPLETED</div>';
+            setTimeout(function() { hideAnalyzerForm(); htmx.trigger('#analyzer-list', 'analyzerUpdated'); }, 500);
+        } else {
+            document.getElementById('analyzer-form-result').innerHTML = '<div style="color:var(--accent-red);font-weight:bold;">ERROR: ' + (resp.message || 'Failed') + '</div>';
+        }
+    });
+
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.target.id === 'analyzer-list') {
+            var resp = JSON.parse(evt.detail.xhr.responseText);
+            var list = document.getElementById('analyzer-list');
+            if (resp.success && resp.data) {
+                document.getElementById('stats-count').textContent = resp.data.length;
+                if (resp.data.length > 0) {
+                    list.innerHTML = resp.data.map(function(r) {
+                        return '<tr>' +
+                            '<td>#' + r.id + '</td>' +
+                            '<td>' + (r.type || 'N/A').toUpperCase() + '</td>' +
+                            '<td>' + (r.target || 'N/A') + '</td>' +
+                            '<td>' + (r.createdAt ? new Date(r.createdAt).toLocaleDateString('pt-BR') : 'N/A') + '</td>' +
+                            '<td><span class="panel-tag">' + (r.status || 'ACTIVE').toUpperCase() + '</span></td>' +
+                            '<td>' +
+                                '<button class="action-btn" onclick="viewReport(' + r.id + ')">VIEW</button> ' +
+                                '<button class="action-btn" hx-delete="http://localhost:5073/api/Analyzer/report/' + r.id + '" hx-headers=\'js:{"Authorization":"Bearer "+localStorage.getItem("abitat_token")}\' hx-confirm="Delete #' + r.id + '?" hx-target="#analyzer-list" hx-swap="none">DEL</button> ' +
+                                '<button class="action-btn" hx-patch="http://localhost:5073/api/Analyzer/report/' + r.id + '/restore" hx-headers=\'js:{"Authorization":"Bearer "+localStorage.getItem("abitat_token")}\' hx-target="#analyzer-list" hx-swap="none">REST</button>' +
+                            '</td></tr>';
+                    }).join('');
+                    htmx.process(list);
+                } else {
+                    list.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">No analyses found.</td></tr>';
+                }
+            }
+        }
+        if (evt.detail.requestConfig.method !== 'GET' && evt.detail.xhr.status === 200 && evt.detail.target.id !== 'analyzer-form-result') {
+            htmx.trigger('#analyzer-list', 'analyzerUpdated');
+        }
+    });
+
+    window.viewReport = function(id) {
+        fetch('http://localhost:5073/api/Analyzer/report/' + id, {
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('abitat_token') }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (d.success) {
+                document.getElementById('report-detail-panel').innerHTML = 
+                    '<div class="blue-card" style="margin-top:14px;background:var(--bg-main);border-color:var(--accent-blue);">' +
+                    '<h4 style="color:var(--text-white);margin:0 0 10px 0;">REPORT #' + id + '</h4>' +
+                    '<pre style="font-size:10px;color:var(--text-main);overflow-x:auto;">' + JSON.stringify(d.data, null, 2) + '</pre>' +
+                    '</div>';
+            }
+        });
+    };
+</script>

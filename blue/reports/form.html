@@ -1,0 +1,67 @@
+<div class="blue-card" style="max-width:500px;">
+    <div class="card-header"><h3 id="report-form-title">NEW REPORT</h3><span class="panel-tag">DOCUMENTS</span></div>
+
+    <form id="report-form" hx-target="#report-form-result" hx-swap="innerHTML">
+        <input type="hidden" id="report-id" name="id">
+        <div class="form-group"><label>TITLE</label><input type="text" id="report-title" name="title" class="form-control" required autocomplete="off"></div>
+        <div class="form-group"><label>TYPE</label><select id="report-type" name="type" class="form-control"><option value="vulnerability">VULNERABILITY</option><option value="incident">INCIDENT</option><option value="audit">AUDIT</option><option value="executive">EXECUTIVE</option></select></div>
+        <div class="form-group"><label>DESCRIPTION</label><textarea id="report-desc" name="description" class="form-control" rows="3"></textarea></div>
+        <div class="form-group"><label>FILTERS (JSON)</label><input type="text" id="report-filters" name="filters" class="form-control" placeholder='{"severity":"critical","startDate":"2024-01-01"}'></div>
+        <div class="flex-row flex-end">
+            <button type="button" class="action-btn btn-secondary" hx-get="/blue/reports/list.html" hx-target="#panel-blue" hx-swap="innerHTML">CANCEL</button>
+            <button type="submit" class="action-btn btn-primary" style="background:var(--accent-violet);">GENERATE</button>
+        </div>
+    </form>
+    <div id="report-form-result" style="margin-top:12px;font-size:11px;"></div>
+</div>
+
+<script>
+    (function() {
+        var params = new URLSearchParams(window.location.search);
+        var id = params.get('id');
+        var form = document.getElementById('report-form');
+
+        if (id) {
+            document.getElementById('report-form-title').textContent = 'EDIT REPORT #' + id;
+            form.setAttribute('hx-put', '/api/Report/' + id);
+            fetch('/api/Report/' + id, { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('abitat_token') } })
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    if (d.success && d.data) {
+                        document.getElementById('report-id').value = id;
+                        document.getElementById('report-title').value = d.data.title || '';
+                        document.getElementById('report-type').value = d.data.type || 'vulnerability';
+                        document.getElementById('report-desc').value = d.data.description || '';
+                        document.getElementById('report-filters').value = d.data.filters || '';
+                    }
+                });
+        } else {
+            form.setAttribute('hx-post', '/api/Report');
+        }
+        htmx.process(form);
+    })();
+
+    document.getElementById('report-form').addEventListener('htmx:beforeRequest', function(evt) {
+        var fd = new FormData(evt.detail.elt);
+        var obj = {};
+        fd.forEach(function(value, key) { 
+            if (key !== 'id') {
+                obj[key] = value;
+            }
+        });
+        evt.detail.xhr.send(JSON.stringify(obj));
+        evt.preventDefault();
+    });
+
+    document.getElementById('report-form').addEventListener('htmx:afterRequest', function(evt) {
+        if(evt.detail.xhr.status >= 400) return;
+        var resp = JSON.parse(evt.detail.xhr.responseText);
+        var resDiv = document.getElementById('report-form-result');
+        if (resp.success) {
+            resDiv.innerHTML = '<div style="color:var(--accent-green);font-weight:bold;">REPORT GENERATED</div>';
+            setTimeout(function() { htmx.ajax('GET', '/blue/reports/list.html', { target: '#panel-blue', swap: 'innerHTML' }); }, 600);
+        } else {
+            resDiv.innerHTML = '<div style="color:var(--accent-red);font-weight:bold;">ERROR: ' + (resp.message || 'Operation failed') + '</div>';
+        }
+    });
+</script>

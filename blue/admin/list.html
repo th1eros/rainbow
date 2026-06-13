@@ -1,0 +1,78 @@
+<div class="blue-card">
+    <div class="card-header">
+        <h3>CLIENTS</h3>
+        <span class="panel-tag">ADMIN</span>
+    </div>
+
+    <div class="blue-stats-strip">
+        <div class="strip-card">
+            <span class="strip-label">TOTAL TENANTS</span>
+            <span class="strip-value" id="stat-total">--</span>
+            <div class="progress-bar"><div class="progress-fill" style="width:100%; background:var(--accent-blue);"></div></div>
+        </div>
+        <div class="strip-card" hx-get="/blue/admin/form.html" hx-target="#panel-blue" hx-swap="innerHTML">
+            <span class="strip-label">PROVISION PACKAGE</span>
+            <span class="strip-value">+</span>
+            <div class="progress-bar"><div class="progress-fill" style="width:100%; background:var(--accent-green);"></div></div>
+        </div>
+    </div>
+
+    <table class="blue-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>CLIENT</th>
+                <th>PLAN</th>
+                <th>VALIDITY</th>
+                <th>ACTIONS</th>
+            </tr>
+        </thead>
+        <tbody id="tenants-list" hx-get="http://localhost:5073/api/Admin/tenants" hx-trigger="load, tenantsUpdated from:body" hx-headers='js:{"Authorization":"Bearer "+localStorage.getItem("abitat_token")}' hx-swap="none">
+            <tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-muted);">Loading system tenants...</td></tr>
+        </tbody>
+    </table>
+
+    <div id="tenant-detail-panel" style="margin-top:16px;"></div>
+</div>
+
+<script>
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.target.id === 'tenants-list') {
+            var resp = JSON.parse(evt.detail.xhr.responseText);
+            var list = document.getElementById('tenants-list');
+            if (resp.success && resp.data) {
+                document.getElementById('stat-total').textContent = resp.data.length;
+                if (resp.data.length > 0) {
+                    list.innerHTML = resp.data.map(function(t) {
+                        return '<tr>' +
+                            '<td>' + t.id + '</td>' +
+                            '<td>' + (t.clientName || 'N/A') + '</td>' +
+                            '<td><span class="panel-tag">' + (t.plan || 'CUSTOM').toUpperCase() + '</span></td>' +
+                            '<td>' + new Date(t.expiresAt).toLocaleDateString('pt-BR') + '</td>' +
+                            '<td>' +
+                                '<button class="action-btn" hx-get="http://localhost:5073/api/Admin/tenants/' + t.id + '" hx-headers=\'js:{"Authorization":"Bearer "+localStorage.getItem("abitat_token")}\' hx-target="#tenant-detail-panel">VIEW</button> ' +
+                                '<button class="action-btn btn-danger-light" hx-delete="http://localhost:5073/api/Admin/tenants/' + t.id + '" hx-headers=\'js:{"Authorization":"Bearer "+localStorage.getItem("abitat_token")}\' hx-confirm="Revoke access for ' + t.clientName + '?" hx-target="#tenants-list" hx-swap="none">REVOKE</button>' +
+                            '</td>' +
+                        '</tr>';
+                    }).join('');
+                    htmx.process(list);
+                } else {
+                    list.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-muted);">No active infrastructure keys found.</td></tr>';
+                }
+            }
+        }
+        if (evt.detail.target.id === 'tenant-detail-panel' && evt.detail.xhr.status === 200) {
+            var resp = JSON.parse(evt.detail.xhr.responseText);
+            if (resp.success && resp.data) {
+                document.getElementById('tenant-detail-panel').innerHTML = 
+                    '<div class="blue-card" style="margin-top:14px; background:var(--bg-main);">' +
+                    '<h4>TENANT METADATA SCOPE</h4>' +
+                    '<pre style="font-size:11px; color:var(--text-main); overflow-x:auto;">' + JSON.stringify(resp.data, null, 2) + '</pre>' +
+                    '</div>';
+            }
+        }
+        if (evt.detail.requestConfig.method === 'DELETE' && evt.detail.xhr.status === 200) {
+            htmx.trigger('#tenants-list', 'tenantsUpdated');
+        }
+    });
+</script>

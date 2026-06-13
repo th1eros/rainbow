@@ -1,0 +1,390 @@
+<div class="red-card">
+    <div class="card-header">
+        <h3 id="tool-form-title">TOOL CONFIGURATION</h3>
+        <span class="panel-tag" id="tool-badge" style="background:rgba(217,122,122,0.1);color:var(--accent-red);border-color:rgba(217,122,122,0.2);">RED OPS</span>
+        <button class="modal-close" onclick="closeModal()">&#10005;</button>
+    </div>
+
+    <div class="tool-layout">
+        <div class="tool-left">
+            <div class="form-section">
+                <div class="section-title">TARGET</div>
+                <div class="form-row">
+                    <div class="form-group" style="flex:2;"><label>HOST</label><input type="text" id="tool-target" class="form-control" autocomplete="off"></div>
+                    <div class="form-group" style="flex:1;"><label>PORT</label><input type="number" id="tool-port" class="form-control" value="445"></div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <div class="section-title">TOOL</div>
+                <div class="form-group"><label>CATEGORY</label><select id="tool-category" class="form-control" onchange="updateCategory()">
+                    <option value="scan">SCAN</option>
+                    <option value="exploit">EXPLOIT / POST-EXPLOIT</option>
+                </select></div>
+                <div class="form-group"><label>SELECTED</label><select id="tool-select" class="form-control" onchange="updateTool()">
+                    <optgroup label="SCAN">
+                        <option value="nmap">NMAP - Network Mapper</option>
+                        <option value="nikto">Nikto - Web Scanner</option>
+                        <option value="gobuster">GoBuster - Dir Bruteforce</option>
+                        <option value="sqlmap">SQLMap - SQL Injection</option>
+                        <option value="hydra">Hydra - Brute Force</option>
+                        <option value="wfuzz">WFuzz - Web Fuzzer</option>
+                    </optgroup>
+                    <optgroup label="EXPLOIT">
+                        <option value="metasploit">METASPLOIT Framework</option>
+                        <option value="sharpsploit">SHARPSPLOIT (C#)</option>
+                        <option value="impacket">IMPACKET (Python)</option>
+                        <option value="hashcat">HASHCAT</option>
+                        <option value="responder">RESPONDER</option>
+                        <option value="bloodhound">BLOODHOUND</option>
+                        <option value="covenant">COVENANT C2</option>
+                        <option value="sliver">SLIVER C2</option>
+                    </optgroup>
+                </select></div>
+                <div class="form-group"><label>MODULE</label><select id="tool-module" class="form-control" size="6" onchange="updatePreview()"></select></div>
+            </div>
+
+            <div class="form-section" id="playbook-section">
+                <div class="section-title">QUICK PLAYBOOK</div>
+                <div class="playbook-grid" id="playbook-grid"></div>
+            </div>
+        </div>
+
+        <div class="tool-right">
+            <div class="form-section" id="scan-options">
+                <div class="section-title scan">SCAN OPTIONS</div>
+                <div class="form-row">
+                    <div class="form-group" style="flex:1;"><label>PORTS</label><input type="text" id="scan-ports" class="form-control" value="1-1000"></div>
+                    <div class="form-group" style="flex:1;"><label>TIMING</label><select id="scan-timing" class="form-control"><option value="T4" selected>T4</option><option value="T3">T3</option><option value="T5">T5</option></select></div>
+                </div>
+                <div id="hydra-opts" style="display:none;">
+                    <div class="form-group"><label>SERVICE</label><select id="hydra-service" class="form-control">
+                        <option value="ssh">SSH</option><option value="ftp">FTP</option><option value="rdp">RDP</option>
+                        <option value="smb">SMB</option><option value="http-get">HTTP GET</option><option value="http-post">HTTP POST</option>
+                        <option value="mssql">MSSQL</option><option value="mysql">MySQL</option>
+                    </select></div>
+                    <div class="form-row">
+                        <div class="form-group" style="flex:1;"><label>USERLIST</label><input type="text" id="hydra-userlist" class="form-control" value="/usr/share/wordlists/users.txt"></div>
+                        <div class="form-group" style="flex:1;"><label>PASSLIST</label><input type="text" id="hydra-passlist" class="form-control" value="/usr/share/wordlists/rockyou.txt"></div>
+                    </div>
+                </div>
+                <div id="wordlist-opts" style="display:none;">
+                    <div class="form-row">
+                        <div class="form-group" style="flex:1;"><label>WORDLIST</label><input type="text" id="scan-wordlist" class="form-control" value="/usr/share/wordlists/dirb/common.txt"></div>
+                        <div class="form-group" style="flex:1;"><label>EXTENSIONS</label><input type="text" id="scan-extensions" class="form-control" value="php,html,txt"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section" id="exploit-options" style="display:none;">
+                <div class="section-title">EXPLOIT OPTIONS</div>
+                <div class="form-row">
+                    <div class="form-group" style="flex:1;"><label>LHOST</label><input type="text" id="exp-lhost" class="form-control" value="10.10.20.10"></div>
+                    <div class="form-group" style="flex:1;"><label>LPORT</label><input type="number" id="exp-lport" class="form-control" value="4444"></div>
+                </div>
+                <div id="msf-opts">
+                    <div class="form-row">
+                        <div class="form-group" style="flex:1;"><label>ENCODER</label><select id="exp-encoder" class="form-control">
+                            <option value="none">NONE</option>
+                            <option value="x86/shikata_ga_nai">shikata_ga_nai</option>
+                            <option value="x64/xor">x64/xor</option>
+                        </select></div>
+                        <div class="form-group" style="flex:1;"><label>ITERATIONS</label><input type="number" id="exp-iterations" class="form-control" value="3" min="1" max="20"></div>
+                    </div>
+                </div>
+                <div id="hashcat-opts" style="display:none;">
+                    <div class="form-row">
+                        <div class="form-group" style="flex:1;"><label>HASH MODE</label><select id="hashcat-mode" class="form-control">
+                            <option value="0">MD5</option><option value="1000">NTLM</option><option value="5600">NetNTLMv2</option>
+                            <option value="13100">Kerberos TGS</option>
+                            <option value="18200">AS-REP Roast</option>
+                        </select></div>
+                        <div class="form-group" style="flex:1;"><label>ATTACK</label><select id="hashcat-attack" class="form-control">
+                            <option value="0">Straight</option><option value="3">Brute-force</option><option value="6">Hybrid</option>
+                        </select></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group" style="flex:1;"><label>HASH FILE</label><input type="text" id="hashcat-file" class="form-control" value="hashes.txt"></div>
+                        <div class="form-group" style="flex:1;"><label>WORDLIST</label><input type="text" id="hashcat-wordlist" class="form-control" value="/usr/share/wordlists/rockyou.txt"></div>
+                    </div>
+                </div>
+                <div id="c2-opts" style="display:none;">
+                    <div class="form-group"><label>CALLBACK URL</label><input type="text" id="c2-callback" class="form-control" value="https://10.10.20.10:8443"></div>
+                    <div class="form-group"><label>USER AGENT</label><input type="text" id="c2-useragent" class="form-control" value="Mozilla/5.0 (Windows NT 10.0; Win64; x64)"></div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <div class="section-title">COMMAND PREVIEW</div>
+                <div id="command-preview" style="font-size:9px;color:var(--text-muted);background:var(--bg-inner);padding:10px;border-radius:var(--radius-sm);font-family:var(--f-mono);word-break:break-all;min-height:44px;"></div>
+            </div>
+
+            <div class="form-section">
+                <div class="section-title">PERFORMANCE</div>
+                <div class="form-row">
+                    <div class="form-group" style="flex:1;"><label>THREADS</label><input type="number" id="tool-threads" class="form-control" value="10" min="1" max="50"></div>
+                    <div class="form-group" style="flex:1;"><label>TIMEOUT (s)</label><input type="number" id="tool-timeout" class="form-control" value="30" min="5" max="300"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="execute-area">
+        <button class="btn-execute" id="btn-execute" onclick="executeTool()">EXECUTE</button>
+        <button class="btn-chain" id="btn-chain" style="display:none;" onclick="chainToExploit()">CHAIN TO EXPLOIT</button>
+        <button class="btn-cancel" onclick="closeModal()">CANCEL</button>
+    </div>
+
+    <div id="tool-result" style="margin-top:12px;font-size:10px;max-height:200px;overflow-y:auto;"></div>
+</div>
+
+<script>
+    var API_BASE = window.__API_RED__ || 'http://localhost:5074';
+
+    var toolsDB = {
+        nmap: { category:'scan', modules:[
+            {label:'Default (-sS -sV -O -T4)', value:'-sS -sV -O -T4'},
+            {label:'Full (-sS -sC -A)', value:'-sS -sC -A'},
+            {label:'UDP Scan', value:'-sU -p 1-1000'},
+            {label:'All Ports Vuln', value:'-p- --script vuln'},
+            {label:'Top 100 Fast', value:'-Pn -sV -T5 --top-ports 100'},
+            {label:'SMB Enum', value:'-sV --script=smb-enum-shares'},
+            {label:'SSH Auth', value:'-sV --script=ssh-auth-methods'},
+            {label:'HTTP Title', value:'-sV --script=http-title'}
+        ]},
+        nikto: { category:'scan', modules:[
+            {label:'Tuning 1', value:'-Tuning 1'},{label:'Tuning 2', value:'-Tuning 2'},
+            {label:'Tuning 3', value:'-Tuning 3'},{label:'Tuning 9', value:'-Tuning 9'},
+            {label:'SSL Only', value:'-ssl'},{label:'Format JSON', value:'-Format json'},
+            {label:'Max Time 30min', value:'-maxtime 30m'}
+        ]},
+        gobuster: { category:'scan', modules:[
+            {label:'Dir Common', value:'dir -w common.txt'},{label:'DNS Subdomain', value:'dns -d example.com'},
+            {label:'Fuzz URL', value:'fuzz -u http://target/FUZZ'},{label:'S3 Buckets', value:'s3 -w bucket-names.txt'},
+            {label:'VHost', value:'vhost -u http://target'},{label:'Dir PHP/HTML/TXT', value:'dir -x php,html,txt'},
+            {label:'Dir Threads 50', value:'dir -t 50'}
+        ]},
+        sqlmap: { category:'scan', modules:[
+            {label:'Level 3 Risk 2', value:'--batch --level=3 --risk=2'},{label:'Level 5 Risk 3', value:'--batch --level=5 --risk=3'},
+            {label:'MySQL Dump', value:'--dbms=mysql --dump'},{label:'MSSQL OS Shell', value:'--dbms=mssql --os-shell'},
+            {label:'Tables', value:'--tables'},{label:'Columns', value:'--columns'},{label:'Current DB', value:'--current-db'}
+        ]},
+        hydra: { category:'scan', modules:[
+            {label:'SSH', value:'ssh'},{label:'FTP', value:'ftp'},{label:'RDP', value:'rdp'},
+            {label:'SMB', value:'smb'},{label:'HTTP GET', value:'http-get'},{label:'HTTP POST', value:'http-post'},
+            {label:'MSSQL', value:'mssql'},{label:'MySQL', value:'mysql'}
+        ]},
+        wfuzz: { category:'scan', modules:[
+            {label:'Hide 404', value:'--hc 404 --hh 0'},{label:'Show 200', value:'--sc 200 --hl 0'},
+            {label:'Common 10t', value:'-w common.txt -t 10'},{label:'Medium 30t', value:'-w medium.txt -t 30'},
+            {label:'POST Data', value:'-Z -d "param=value"'},{label:'Cookie', value:'-b "cookie=val"'},{label:'Follow', value:'--follow'}
+        ]},
+        metasploit: { category:'exploit', modules:[
+            {label:'MS17-010 EternalBlue', value:'exploit/windows/smb/ms17_010_eternalblue'},
+            {label:'MS08-067 NetAPI', value:'exploit/windows/smb/ms08_067_netapi'},
+            {label:'BlueKeep CVE-2019-0708', value:'exploit/windows/rdp/cve_2019_0708_bluekeep'},
+            {label:'Log4Shell', value:'exploit/multi/http/cve_2021_44228_log4shell'},
+            {label:'WinRM Exec', value:'exploit/windows/winrm/winrm_script_exec'},
+            {label:'Struts2 RCE', value:'exploit/multi/http/struts2_code_exec'},
+            {label:'libSSH Bypass', value:'exploit/linux/ssh/libssh_auth_bypass'},
+            {label:'Generic Handler', value:'exploit/multi/handler'}
+        ]},
+        sharpsploit: { category:'exploit', modules:[
+            {label:'ShellCode', value:'Execution.ShellCode'},{label:'Shell Cmd', value:'Execution.ShellCmd'},
+            {label:'PowerShell', value:'Execution.PowerShell'},{label:'Mimikatz', value:'Credentials.Mimikatz'},
+            {label:'Bypass UAC', value:'PrivEsc.BypassUac'},{label:'Get System', value:'PrivEsc.GetSystem'},
+            {label:'WMI Persist', value:'Persistence.WMI'},{label:'AMSI Bypass', value:'Evasion.AMSIBypass'}
+        ]},
+        impacket: { category:'exploit', modules:[
+            {label:'Secrets Dump', value:'secretsdump.py'},{label:'Mimikatz', value:'mimikatz.py'},
+            {label:'PsExec', value:'psexec.py'},{label:'WMI Exec', value:'wmiexec.py'},
+            {label:'SMB Exec', value:'smbexec.py'},{label:'DCOM Exec', value:'dcomexec.py'},
+            {label:'GetNPUsers', value:'GetNPUsers.py'},{label:'NTLM Relay', value:'ntlmrelayx.py'}
+        ]},
+        hashcat: { category:'exploit', modules:[
+            {label:'NTLM Dict', value:'-m 1000 -a 0'},{label:'NetNTLMv2 Brute', value:'-m 5600 -a 3'},
+            {label:'Kerberos TGS', value:'-m 13100 -a 6'},{label:'AS-REP Roast', value:'-m 18200 -a 0'},
+            {label:'Rule-Based', value:'-a 0 -r best64.rule'},{label:'Mask Attack', value:'-a 3 -1 ?l?d ?1?1?1?1'}
+        ]},
+        responder: { category:'exploit', modules:[
+            {label:'Interface eth0', value:'-I eth0'},{label:'All Interfaces', value:'-I any'},
+            {label:'WPAD Proxy', value:'-w'},{label:'Verbose', value:'-v'},
+            {label:'Analyze', value:'-A'},{label:'SMB Only', value:'-S'}
+        ]},
+        bloodhound: { category:'exploit', modules:[
+            {label:'SharpHound All', value:'SharpHound -c All'},{label:'Session', value:'SharpHound -c Session'},
+            {label:'Group', value:'SharpHound -c Group'},{label:'LocalAdmin', value:'SharpHound -c LocalAdmin'},
+            {label:'Trust', value:'SharpHound -c Trust'},{label:'ACL', value:'SharpHound -c ACL'}
+        ]},
+        covenant: { category:'exploit', modules:[
+            {label:'Grunt Stager', value:'GruntStager'},{label:'Grunt HTTP', value:'GruntHTTP'},
+            {label:'Grunt HTTPS', value:'GruntHTTPS'},{label:'Grunt SMB', value:'GruntSMB'},
+            {label:'Grunt WMI', value:'GruntWMI'},{label:'PowerShell', value:'GruntPowerShell'}
+        ]},
+        sliver: { category:'exploit', modules:[
+            {label:'mTLS', value:'mtls'},{label:'HTTP', value:'http'},
+            {label:'HTTPS', value:'https'},{label:'DNS', value:'dns'},
+            {label:'WireGuard', value:'wireguard'},{label:'Beacon', value:'generate beacon'}
+        ]}
+    };
+
+    var playbooks = {
+        nmap: [
+            {label:'SMB Found', tool:'metasploit', module:'exploit/windows/smb/ms17_010_eternalblue'},
+            {label:'HTTP Found', tool:'nikto', module:'-Tuning 1'},
+            {label:'MySQL Found', tool:'sqlmap', module:'--dbms=mysql --dump'}
+        ],
+        nikto: [
+            {label:'Apache RCE', tool:'metasploit', module:'exploit/multi/http/struts2_code_exec'},
+            {label:'Dir Bruteforce', tool:'gobuster', module:'dir -w common.txt'}
+        ],
+        gobuster: [
+            {label:'Admin Found', tool:'hydra', module:'http-post'},
+            {label:'SQL Page', tool:'sqlmap', module:'--batch --level=3 --risk=2'}
+        ],
+        sqlmap: [
+            {label:'Dump Creds', tool:'hashcat', module:'-m 1000 -a 0'},
+            {label:'OS Shell', tool:'metasploit', module:'exploit/multi/handler'}
+        ]
+    };
+
+    var currentCategory = 'scan';
+    var currentTool = 'nmap';
+
+    function updateCategory() {
+        currentCategory = document.getElementById('tool-category').value;
+        var select = document.getElementById('tool-select');
+        var options = select.options;
+        if (currentCategory === 'scan') {
+            select.value = 'nmap';
+            for (var i = 0; i < options.length; i++) {
+                options[i].style.display = options[i].parentElement.label === 'EXPLOIT' ? 'none' : '';
+            }
+        } else {
+            select.value = 'metasploit';
+            for (var i = 0; i < options.length; i++) {
+                options[i].style.display = options[i].parentElement.label === 'SCAN' ? 'none' : '';
+            }
+        }
+        updateTool();
+    }
+
+    function updateTool() {
+        currentTool = document.getElementById('tool-select').value;
+        var data = toolsDB[currentTool];
+        if (!data) return;
+        var select = document.getElementById('tool-module');
+        select.innerHTML = data.modules.map(function(m, i) {
+            return '<option value="' + m.value + '"' + (i === 0 ? ' selected' : '') + '>' + m.label + '</option>';
+        }).join('');
+
+        var isScan = data.category === 'scan';
+        document.getElementById('tool-form-title').textContent = currentTool.toUpperCase() + ' CONFIGURATION';
+        var badge = document.getElementById('tool-badge');
+        if (isScan) {
+            badge.style.background = 'rgba(107,164,214,0.1)'; badge.style.color = 'var(--accent-blue)'; badge.style.borderColor = 'rgba(107,164,214,0.2)'; badge.textContent = 'SCANNER';
+        } else {
+            badge.style.background = 'rgba(217,122,122,0.1)'; badge.style.color = 'var(--accent-red)'; badge.style.borderColor = 'rgba(217,122,122,0.2)'; badge.textContent = 'RED OPS';
+        }
+
+        var btnExec = document.getElementById('btn-execute');
+        if (isScan) { btnExec.style.background = 'var(--accent-blue)'; btnExec.className = 'btn-execute scan'; }
+        else { btnExec.style.background = 'var(--accent-red)'; btnExec.className = 'btn-execute'; }
+
+        document.getElementById('scan-options').style.display = isScan ? 'block' : 'none';
+        document.getElementById('exploit-options').style.display = !isScan ? 'block' : 'none';
+        document.getElementById('hydra-opts').style.display = currentTool === 'hydra' ? 'block' : 'none';
+        document.getElementById('wordlist-opts').style.display = (currentTool === 'gobuster' || currentTool === 'wfuzz') ? 'block' : 'none';
+        document.getElementById('msf-opts').style.display = currentTool === 'metasploit' ? 'block' : 'none';
+        document.getElementById('hashcat-opts').style.display = currentTool === 'hashcat' ? 'block' : 'none';
+        document.getElementById('c2-opts').style.display = (currentTool === 'covenant' || currentTool === 'sliver') ? 'block' : 'none';
+        document.getElementById('btn-chain').style.display = isScan ? 'inline-block' : 'none';
+        updatePlaybooks();
+        updatePreview();
+    }
+
+    function updatePlaybooks() {
+        var grid = document.getElementById('playbook-grid');
+        var items = playbooks[currentTool] || [];
+        if (items.length === 0) { grid.innerHTML = '<div style="font-size:9px;color:var(--text-muted);grid-column:1/-1;text-align:center;">No playbooks</div>'; return; }
+        grid.innerHTML = items.map(function(p) {
+            return '<div class="playbook-chip" onclick="applyPlaybook(\'' + p.tool + '\',\'' + p.module + '\')">' + p.label + ' &#9654; ' + p.tool.toUpperCase() + '</div>';
+        }).join('');
+    }
+
+    window.applyPlaybook = function(tool, module) {
+        document.getElementById('tool-category').value = 'exploit'; updateCategory();
+        document.getElementById('tool-select').value = tool; updateTool();
+        var modSelect = document.getElementById('tool-module');
+        for (var i = 0; i < modSelect.options.length; i++) { if (modSelect.options[i].value === module) { modSelect.selectedIndex = i; break; } }
+        updatePreview();
+    };
+
+    function updatePreview() {
+        var tool = currentTool;
+        var modSelect = document.getElementById('tool-module');
+        var module = modSelect.options[modSelect.selectedIndex].value;
+        var target = document.getElementById('tool-target').value || 'TARGET';
+        var preview = tool + ' | ' + module + ' | ' + target;
+        if (tool === 'nmap') { preview = 'nmap ' + module + ' ' + target; }
+        else if (tool === 'hydra') { var service = document.getElementById('hydra-service').value; preview = 'hydra -L ' + document.getElementById('hydra-userlist').value + ' -P ' + document.getElementById('hydra-passlist').value + ' ' + target + ' ' + service; }
+        else if (tool === 'metasploit') { var lhost = document.getElementById('exp-lhost').value; var lport = document.getElementById('exp-lport').value; preview = 'use ' + module + '; set RHOSTS ' + target + '; set LHOST ' + lhost + '; set LPORT ' + lport + '; run'; }
+        else if (tool === 'hashcat') { preview = 'hashcat -m ' + document.getElementById('hashcat-mode').value + ' -a ' + document.getElementById('hashcat-attack').value + ' ' + document.getElementById('hashcat-file').value + ' ' + document.getElementById('hashcat-wordlist').value; }
+        document.getElementById('command-preview').textContent = preview;
+    }
+
+    document.getElementById('tool-target').addEventListener('input', updatePreview);
+
+    function getToken() { return localStorage.getItem('abitat_token') || ''; }
+
+    window.chainToExploit = function() { document.getElementById('tool-category').value = 'exploit'; updateCategory(); };
+
+    window.executeTool = function() {
+        var target = document.getElementById('tool-target').value;
+        var port = document.getElementById('tool-port').value;
+        if (!target) { document.getElementById('tool-result').innerHTML = '<pre style="color:var(--accent-red);">ERROR: Target is required</pre>'; return; }
+        var data = toolsDB[currentTool];
+        var modSelect = document.getElementById('tool-module');
+        var module = modSelect.options[modSelect.selectedIndex].value;
+        var isScan = data.category === 'scan';
+        var body = { target: target + ':' + port, exploitType: currentTool, exploitName: module, threads: parseInt(document.getElementById('tool-threads').value), timeout: parseInt(document.getElementById('tool-timeout').value) };
+        if (isScan) {
+            body.scanType = currentTool; body.ports = document.getElementById('scan-ports').value; body.timing = document.getElementById('scan-timing').value; body.options = module;
+            if (currentTool === 'hydra') { body.service = document.getElementById('hydra-service').value; body.userlist = document.getElementById('hydra-userlist').value; body.passlist = document.getElementById('hydra-passlist').value; }
+            if (currentTool === 'gobuster' || currentTool === 'wfuzz') { body.wordlist = document.getElementById('scan-wordlist').value; body.extensions = document.getElementById('scan-extensions').value; }
+        } else {
+            body.lhost = document.getElementById('exp-lhost').value; body.lport = parseInt(document.getElementById('exp-lport').value);
+            if (currentTool === 'metasploit') { body.encoder = document.getElementById('exp-encoder').value; body.iterations = parseInt(document.getElementById('exp-iterations').value); }
+        }
+        var endpoint = isScan ? '/api/Scan' : '/api/Exploit';
+        var resDiv = document.getElementById('tool-result');
+        resDiv.innerHTML = '<span style="color:var(--accent-orange);">Executing ' + currentTool.toUpperCase() + ' against ' + target + '...</span>';
+        fetch(API_BASE + endpoint, { method:'POST', headers:{ 'Authorization':'Bearer '+getToken(), 'Content-Type':'application/json' }, body:JSON.stringify(body) })
+        .then(function(r) { return r.json(); }).then(function(d) {
+            if (d.success) { var id = d.data.scanId || d.data.exploitId; resDiv.innerHTML = '<pre style="color:var(--accent-green);">EXECUTED\nID: '+id+'\nTARGET: '+body.target+'\nTOOL: '+currentTool.toUpperCase()+'\n\n[+] Success</pre>'; setTimeout(function(){ if(typeof closeModal==='function') closeModal(); },2000); }
+            else { resDiv.innerHTML = '<pre style="color:var(--accent-red);">FAILED\n'+(d.message||'Unknown error')+'</pre>'; }
+        }).catch(function() { resDiv.innerHTML = '<pre style="color:var(--accent-red);">CONNECTION FAILED</pre>'; });
+    };
+
+    (function() {
+        var params = new URLSearchParams(window.location.search);
+        var tool = params.get('tool');
+        var target = params.get('target');
+        var type = params.get('type');
+
+        if (type === 'exploit' || (tool && toolsDB[tool] && toolsDB[tool].category === 'exploit')) {
+            document.getElementById('tool-category').value = 'exploit';
+        }
+        updateCategory();
+
+        if (tool && toolsDB[tool]) {
+            document.getElementById('tool-select').value = tool;
+            updateTool();
+        }
+
+        if (target) {
+            document.getElementById('tool-target').value = target;
+            updatePreview();
+        }
+    })();
+</script>

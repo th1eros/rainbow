@@ -1,0 +1,108 @@
+<div class="blue-card">
+    <div class="card-header"><h3>INCIDENTS</h3><span class="panel-tag">SIEM</span></div>
+
+    <div class="blue-stats-strip">
+        <div class="strip-card"><span class="strip-label">TOTAL</span><span class="strip-value" id="stat-total">--</span><div class="progress-bar"><div class="progress-fill" style="width:100%;background:var(--accent-orange);"></div></div></div>
+        <div class="strip-card"><span class="strip-label">OPEN</span><span class="strip-value" id="stat-open">--</span><div class="progress-bar"><div class="progress-fill" style="width:100%;background:var(--accent-red);"></div></div></div>
+        <div class="strip-card"><span class="strip-label">ANALYSIS</span><span class="strip-value" id="stat-analysis">--</span><div class="progress-bar"><div class="progress-fill" style="width:100%;background:var(--accent-orange);"></div></div></div>
+        <div class="strip-card" hx-get="/blue/incidents/form.html" hx-target="#panel-blue" hx-swap="innerHTML"><span class="strip-label">NEW INCIDENT</span><span class="strip-value">+</span><div class="progress-bar"><div class="progress-fill" style="width:100%;background:var(--accent-green);"></div></div></div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <input type="text" id="incident-filter" placeholder="Filter by title..." class="form-control" style="margin:0;" onkeyup="filterIncidents()">
+        <select id="status-filter" class="form-control" style="width:auto;margin:0;" onchange="filterIncidents()">
+            <option value="all">ALL</option><option value="open">OPEN</option><option value="analysis">ANALYSIS</option><option value="contained">CONTAINED</option><option value="resolved">RESOLVED</option>
+        </select>
+    </div>
+
+    <table class="blue-table">
+        <thead><tr><th>ID</th><th>TITLE</th><th>SEVERITY</th><th>STATUS</th><th>ASSIGNED</th><th>ACTIONS</th></tr></thead>
+        <tbody id="incidents-list" hx-get="http://localhost:5073/api/Incident" hx-trigger="load, incidentUpdated from:body" hx-headers='js:{"Authorization":"Bearer "+localStorage.getItem("abitat_token")}' hx-swap="none">
+            <tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">Loading incidents...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    var allIncidents = [];
+    var sevColors = ['var(--accent-red)','var(--accent-orange)','var(--accent-amber)','var(--accent-blue)'];
+    var sevLabels = ['CRITICAL','HIGH','MEDIUM','LOW'];
+
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.target.id === 'incidents-list') {
+            var resp = JSON.parse(evt.detail.xhr.responseText);
+            if (resp.success && resp.data) {
+                allIncidents = resp.data;
+                document.getElementById('stat-total').textContent = resp.data.length;
+                document.getElementById('stat-open').textContent = resp.data.filter(function(i){ return i.status==='open'; }).length;
+                document.getElementById('stat-analysis').textContent = resp.data.filter(function(i){ return i.status==='analysis'; }).length;
+                renderIncidents(allIncidents);
+            }
+        }
+    });
+
+    function renderIncidents(data) {
+        var list = document.getElementById('incidents-list');
+        if (data.length > 0) {
+            list.innerHTML = data.map(function(i) {
+                return '<tr><td>#' + i.id + '</td><td>' + (i.title || 'N/A') + '</td><td style="color:' + (sevColors[i.severity] || 'var(--text-muted)') + ';font-weight:700;">' + (sevLabels[i.severity] || 'N/A') + '</td><td>' + (i.status || 'N/A').toUpperCase() + '</td><td>' + (i.assignedTo || '--') + '</td><td>' +
+                    '<button class="action-btn" hx-get="/blue/incidents/form.html?id=' + i.id + '" hx-target="#panel-blue" hx-swap="innerHTML">EDIT</button> ' +
+                    '<button class="action-btn" onclick="assignIncident(' + i.id + ')">ASGN</button> ' +
+                    '<button class="action-btn" onclick="changeStatus(' + i.id + ')">STTS</button> ' +
+                    '<button class="action-btn" onclick="addComment(' + i.id + ')">CMT</button> ' +
+                    '<button class="action-btn" hx-delete="http://localhost:5073/api/Incident/' + i.id + '" hx-headers=\'js:{"Authorization":"Bearer "+localStorage.getItem("abitat_token")}\' hx-confirm="Close #' + i.id + '?" hx-target="#incidents-list" hx-swap="none">CLS</button>' +
+                '</td></tr>';
+            }).join('');
+            htmx.process(list);
+        } else {
+            list.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">No incidents mapped.</td></tr>';
+        }
+    }
+
+    function filterIncidents() {
+        var text = (document.getElementById('incident-filter').value || '').toLowerCase();
+        var status = document.getElementById('status-filter').value;
+        var filtered = allIncidents.filter(function(i) {
+            var matchText = !text || (i.title || '').toLowerCase().includes(text);
+            var matchStatus = status === 'all' || i.status === status;
+            return matchText && matchStatus;
+        });
+        renderIncidents(filtered);
+    }
+
+    function assignIncident(id) {
+        var user = prompt('Assign to user:');
+        if (!user) return;
+        fetch('http://localhost:5073/api/Incident/' + id + '/assign', {
+            method: 'PATCH',
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('abitat_token'), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user })
+        }).then(function() { htmx.trigger('#incidents-list', 'incidentUpdated'); });
+    }
+
+    function changeStatus(id) {
+        var status = prompt('New status (open/analysis/contained/resolved):');
+        if (!status) return;
+        fetch('http://localhost:5073/api/Incident/' + id + '/status', {
+            method: 'PATCH',
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('abitat_token'), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: status })
+        }).then(function() { htmx.trigger('#incidents-list', 'incidentUpdated'); });
+    }
+
+    function addComment(id) {
+        var text = prompt('Comment:');
+        if (!text) return;
+        fetch('http://localhost:5073/api/Incident/' + id + '/comments', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('abitat_token'), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: text })
+        }).then(function() { alert('Comment added'); });
+    }
+
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.target.id === 'incidents-list' && evt.detail.requestConfig.method !== 'GET') {
+            htmx.trigger('#incidents-list', 'incidentUpdated');
+        }
+    });
+</script>

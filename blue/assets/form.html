@@ -1,0 +1,69 @@
+<div class="blue-card" style="max-width:500px;">
+    <div class="card-header">
+        <h3 id="asset-form-title">NEW ASSET</h3>
+        <span class="panel-tag">INVENTORY</span>
+    </div>
+
+    <form id="asset-form" hx-target="#asset-form-result" hx-swap="innerHTML">
+        <input type="hidden" id="asset-id" name="id">
+        <div class="form-group"><label>NAME</label><input type="text" id="asset-name" name="name" class="form-control" required autocomplete="off"></div>
+        <div class="form-group"><label>IP / HOST</label><input type="text" id="asset-ip" name="ip" class="form-control" required autocomplete="off"></div>
+        <div class="form-group"><label>TYPE</label><select id="asset-type" name="type" class="form-control"><option value="server">SERVER</option><option value="workstation">WORKSTATION</option><option value="network">NETWORK</option><option value="cloud">CLOUD</option><option value="iot">IOT</option></select></div>
+        <div class="form-group"><label>ENVIRONMENT</label><select id="asset-env" name="environment" class="form-control"><option value="production">PRODUCTION</option><option value="staging">STAGING</option><option value="development">DEVELOPMENT</option></select></div>
+        <div class="flex-row flex-end">
+            <button type="button" class="action-btn btn-secondary" hx-get="/blue/assets/list.html" hx-target="#panel-blue" hx-swap="innerHTML">CANCEL</button>
+            <button type="submit" class="action-btn btn-primary">SAVE</button>
+        </div>
+    </form>
+    <div id="asset-form-result" style="margin-top:12px;font-size:11px;"></div>
+</div>
+
+<script>
+    (function() {
+        var params = new URLSearchParams(window.location.search);
+        var id = params.get('id');
+        var form = document.getElementById('asset-form');
+        var token = localStorage.getItem('abitat_token');
+        var headers = JSON.stringify({ 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' });
+
+        if (id) {
+            document.getElementById('asset-form-title').textContent = 'EDIT ASSET #' + id;
+            form.setAttribute('hx-put', 'http://localhost:5073/api/Asset/' + id);
+            fetch('http://localhost:5073/api/Asset/' + id, { headers: { 'Authorization': 'Bearer ' + token } })
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    if (d.success && d.data) {
+                        document.getElementById('asset-id').value = id;
+                        document.getElementById('asset-name').value = d.data.name || '';
+                        document.getElementById('asset-ip').value = d.data.ip || '';
+                        document.getElementById('asset-type').value = d.data.type || 'server';
+                        document.getElementById('asset-env').value = d.data.environment || 'production';
+                    }
+                });
+        } else {
+            form.setAttribute('hx-post', 'http://localhost:5073/api/Asset');
+        }
+        form.setAttribute('hx-headers', headers);
+        htmx.process(form);
+    })();
+
+    document.getElementById('asset-form').addEventListener('htmx:beforeRequest', function(evt) {
+        var inputs = evt.detail.elt;
+        var fd = new FormData(inputs);
+        var obj = {};
+        fd.forEach(function(value, key) { if (key !== 'id') obj[key] = value; });
+        evt.detail.xhr.send(JSON.stringify(obj));
+        evt.preventDefault();
+    });
+
+    document.getElementById('asset-form').addEventListener('htmx:afterRequest', function(evt) {
+        var resp = JSON.parse(evt.detail.xhr.responseText);
+        var resDiv = document.getElementById('asset-form-result');
+        if (resp.success) {
+            resDiv.innerHTML = '<div style="color:var(--accent-green);font-weight:bold;">ASSET SAVED SUCCESSFULLY</div>';
+            setTimeout(function() { htmx.ajax('GET', '/blue/assets/list.html', { target: '#panel-blue', swap: 'innerHTML' }); }, 600);
+        } else {
+            resDiv.innerHTML = '<div style="color:var(--accent-red);font-weight:bold;">ERROR: ' + (resp.message || 'Operation failed') + '</div>';
+        }
+    });
+</script>

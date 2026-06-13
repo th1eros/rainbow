@@ -1,0 +1,96 @@
+<div class="card" style="padding: 16px; display: grid; grid-template-columns: 2.5fr 1fr; gap: 16px;">
+    <div>
+        <div class="panel-title">
+            <span>GRAPH MATRIX</span>
+            <div style="display: flex; gap: 4px;">
+                <button class="ctrl-btn active" onclick="resizeG('300px', this)">SM</button>
+                <button class="ctrl-btn" onclick="resizeG('500px', this)">MD</button>
+                <button class="ctrl-btn" onclick="resizeG('700px', this)">LG</button>
+                <button class="ctrl-btn" onclick="resizeG('85vh', this)">FULL</button>
+            </div>
+        </div>
+
+        <div class="g-monitor" id="g-viewport" style="height: 300px;">
+            <span style="color: var(--text-muted); font-size: 10px;">DOUBLE-CLICK TO EXPAND | AWAITING TOPOLOGY...</span>
+        </div>
+
+        <div class="panel-title" style="margin-top: 20px;">
+            <span>TOPOLOGY RELATION MATRIX</span>
+            <button class="ctrl-btn" hx-get="/api/Graph/topology" hx-target="#g-bridge" hx-trigger="click">FORCE SYNC</button>
+        </div>
+        <div class="matrix-grid" id="g-bridge" hx-get="/api/Graph/topology" hx-trigger="load" hx-swap="innerHTML"></div>
+    </div>
+
+    <div style="border-left: 1px solid var(--border-color); padding-left: 16px; display: flex; flex-direction: column; gap: 16px;">
+        <div>
+            <div class="panel-title" id="f-title">PROVISION RELATION</div>
+            <form id="r-form" hx-post="/api/Graph/relation" hx-ext="json-enc" hx-target="#g-bridge">
+                <input type="hidden" id="f-id">
+                <div class="form-group"><label>SOURCE ID</label><input type="number" name="sourceId" id="f-src" class="form-control" required min="1"></div>
+                <div class="form-group"><label>TARGET ID</label><input type="number" name="targetId" id="f-tgt" class="form-control" required min="1"></div>
+                <button type="submit" class="action-btn btn-primary" id="f-btn" style="font-size: 10px;">COMMIT MUTATION</button>
+            </form>
+        </div>
+
+        <div>
+            <div class="panel-title">CRITICAL PATH FINDER</div>
+            <div class="form-group"><label>START ID</label><input type="number" id="p-src" class="form-control" min="1"></div>
+            <div class="form-group"><label>END ID</label><input type="number" id="p-tgt" class="form-control" min="1"></div>
+            <button class="action-btn btn-primary" hx-get="/api/Graph/path/eval" hx-target="#q-res" style="background: var(--bg-inner); border: 1px solid var(--border-color); font-size: 10px;">EVALUATE PATH</button>
+        </div>
+
+        <div>
+            <div class="panel-title">NODE ISOLATION</div>
+            <div class="form-group"><label>NODE ID</label><input type="number" id="q-node" class="form-control" min="1"></div>
+            <button class="action-btn btn-primary" hx-get="/api/Graph/node/eval" hx-target="#q-res" style="background: var(--bg-inner); border: 1px solid var(--border-color); font-size: 10px;">FETCH ISOLATED</button>
+        </div>
+
+        <div id="q-res" style="font-size: 10px; color: var(--accent-green); white-space: pre-wrap; overflow-x: auto; font-family: var(--f-mono);"></div>
+    </div>
+
+    <script>
+        function resizeG(h, b) {
+            document.getElementById('g-viewport').style.height = h;
+            document.querySelectorAll('.ctrl-btn').forEach(function(x) { x.classList.remove('active'); });
+            if (b) b.classList.add('active');
+        }
+
+        var gViewport = document.getElementById('g-viewport');
+        gViewport.addEventListener('dblclick', function() {
+            var currentHeight = gViewport.style.height;
+            if (currentHeight === '85vh') {
+                resizeG('300px');
+            } else {
+                resizeG('85vh');
+            }
+        });
+
+        document.body.addEventListener('htmx:configRequest', function(e) {
+            var tok = localStorage.getItem('abitat_token') || localStorage.getItem('jwt_token');
+            if (tok) e.detail.headers['Authorization'] = 'Bearer ' + tok;
+            var xsrf = document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1];
+            if (xsrf) e.detail.headers['X-XSRF-TOKEN'] = xsrf;
+
+            if (e.detail.path.includes('/api/Graph/path/eval')) e.detail.path = '/api/Graph/path/' + document.getElementById('p-src').value + '/' + document.getElementById('p-tgt').value;
+            if (e.detail.path.includes('/api/Graph/node/eval')) e.detail.path = '/api/Graph/node/' + document.getElementById('q-node').value + '/relations';
+            if (document.getElementById('f-id').value && e.detail.path === '/api/Graph/relation') { e.detail.path = '/api/Graph/relation/' + document.getElementById('f-id').value; e.detail.method = 'PUT'; }
+        });
+
+        document.body.addEventListener('htmx:afterRequest', function(e) {
+            if (!e.detail.xhr.getResponseHeader('Content-Type')?.includes('application/json')) return;
+            var res = JSON.parse(e.detail.xhr.responseText);
+
+            if (e.detail.target.id === 'g-bridge') {
+                document.getElementById('g-viewport').innerHTML = (res.nodes || []).map(function(n) {
+                    return '<div class="g-node ' + (n.hasCriticalVulnerability ? 'vuln' : 'active') + '"><strong>ID: ' + n.id + '</strong><br><span style="color:var(--text-muted);font-size:9px;">' + (n.label || 'NODE') + '</span></div>';
+                }).join('') || '<span style="color:var(--text-muted);font-size:10px;">EMPTY TOPOLOGY</span>';
+
+                e.detail.target.innerHTML = (res.relations || []).map(function(r) {
+                    return '<div class="g-node" style="text-align:left; ' + (r.isDeleted ? 'opacity:0.3;' : '') + '"><div style="font-size:9px;color:var(--text-muted);">REF_ID: ' + r.id + '</div><div style="margin:4px 0;">' + r.sourceId + ' &#10142; ' + r.targetId + '</div><div style="display:flex;gap:4px;margin-top:6px;"><button class="ctrl-btn" onclick="document.getElementById(\'f-id\').value=\'' + r.id + '\';document.getElementById(\'f-src\').value=\'' + r.sourceId + '\';document.getElementById(\'f-tgt\').value=\'' + r.targetId + '\';document.getElementById(\'f-title\').innerText=\'EDIT RELATION\';document.getElementById(\'f-btn\').innerText=\'UPDATE COMMIT\';">EDIT</button>' + (r.isDeleted ? '<button class="ctrl-btn" style="color:var(--accent-green);" hx-patch="/api/Graph/relation/' + r.id + '/restore" hx-target="#g-bridge">RESTORE</button>' : '<button class="ctrl-btn" style="color:var(--accent-red);" hx-delete="/api/Graph/relation/' + r.id + '" hx-target="#g-bridge">REMOVE</button>') + '</div></div>';
+                }).join('');
+                htmx.process(e.detail.target);
+            }
+            if (e.detail.target.id === 'q-res') e.detail.target.innerHTML = '<pre style="background:var(--bg-inner);padding:8px;border:1px solid var(--border-color);border-radius:var(--radius-sm);">' + JSON.stringify(res, null, 2) + '</pre>';
+        });
+    </script>
+</div>

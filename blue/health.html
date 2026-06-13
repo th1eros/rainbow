@@ -1,0 +1,73 @@
+<div class="health-wrapper">
+    <div class="health-card">
+        <div class="card-header">
+            <h3>HEALTH SYSTEM</h3>
+            <span class="panel-tag">HEALTH MONITOR</span>
+        </div>
+
+        <div class="stats-strip" id="health-stats">
+            <div class="strip-card">
+                <span class="strip-label">STATUS</span>
+                <span class="strip-value" id="health-status">--</span>
+                <div class="progress-bar"><div class="progress-fill" style="background:var(--accent-green);"></div></div>
+            </div>
+            <div class="strip-card">
+                <span class="strip-label">AMBIENTE</span>
+                <span class="strip-value" id="health-env">--</span>
+                <div class="progress-bar"><div class="progress-fill" style="background:var(--accent-blue);"></div></div>
+            </div>
+            <div class="strip-card">
+                <span class="strip-label">SILVER</span>
+                <span class="strip-value" id="health-silver">--</span>
+                <div class="progress-bar"><div class="progress-fill" style="background:var(--accent-silver);"></div></div>
+            </div>
+            <div class="strip-card">
+                <span class="strip-label">REDIS</span>
+                <span class="strip-value" id="health-redis">--</span>
+                <div class="progress-bar"><div class="progress-fill" style="background:var(--accent-orange);"></div></div>
+            </div>
+        </div>
+
+        <div class="main-grid">
+            <div>
+                <div class="card-header" style="margin-bottom: 12px;"><h3>BANCOS DE DADOS</h3></div>
+                <div id="db-info" style="display: flex; flex-direction: column; gap: 10px;">
+                    <div class="info-block">Carregando...</div>
+                </div>
+            </div>
+            <div>
+                <div class="card-header" style="margin-bottom: 12px;"><h3>PORTAS ATIVAS</h3></div>
+                <div id="ports-info" class="info-block">Carregando...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const headers = { 'Authorization': 'Bearer ' + (localStorage.getItem('abitat_token') || '') };
+
+    fetch('/api/Health', { headers: headers })
+        .then(r => r.json())
+        .then(d => {
+            document.getElementById('health-status').textContent = d.status || '--';
+            document.getElementById('health-env').textContent = d.environment || '--';
+            document.getElementById('health-silver').textContent = d.modules?.silver || '--';
+            document.getElementById('health-redis').textContent = d.modules?.redis || '--';
+            if (d.ports) {
+                document.getElementById('ports-info').innerHTML = `
+                    <div class="info-row"><span>BLUE</span><strong style="color:var(--accent-blue);">${d.ports.blue || 'N/A'}</strong></div>
+                    <div class="info-row"><span>RED</span><strong style="color:var(--accent-red);">${d.ports.red || 'N/A'}</strong></div>
+                    <div class="info-row"><span>VIOLET</span><strong style="color:var(--accent-violet);">${d.ports.violet || 'N/A'}</strong></div>`;
+            }
+        });
+
+    fetch('/api/Health/db', { headers: headers })
+        .then(r => r.json())
+        .then(d => {
+            document.getElementById('db-info').innerHTML = `
+                <div class="info-block"><strong>PRINCIPAL</strong><span style="color:var(--text-muted);font-size:10px;">${d.principal || 'N/A'}</span></div>
+                <div class="info-block"><strong>LABS</strong><span style="color:var(--text-muted);font-size:10px;">${d.labs || 'N/A'}</span></div>
+                <div class="info-block"><strong>BLUE</strong><span style="color:var(--accent-blue);font-size:10px;">${d.blue || 'N/A'}</span></div>
+                <div class="info-block"><strong>REDIS</strong><span style="color:var(--accent-orange);font-size:10px;">${d.redis || 'N/A'}</span></div>`;
+        });
+</script>

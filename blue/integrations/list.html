@@ -1,0 +1,54 @@
+<div class="blue-card">
+    <div class="card-header"><h3>ACTIVE INTEGRATIONS</h3><span class="panel-tag">CONNECTORS</span></div>
+
+    <div class="blue-stats-strip">
+        <div class="strip-card" hx-get="/blue/integrations/form.html" hx-target="#panel-blue" hx-swap="innerHTML"><span class="strip-label">NEW CONNECTOR</span><span class="strip-value">+</span><div class="progress-bar"><div class="progress-fill" style="width:100%;background:var(--accent-green);"></div></div></div>
+    </div>
+
+    <table class="blue-table">
+        <thead><tr><th>ID</th><th>NAME</th><th>TYPE</th><th>ENDPOINT</th><th>STATUS</th><th>ACTIONS</th></tr></thead>
+        <tbody id="itg-list" hx-get="/api/Integration" hx-trigger="load, itgUpdated from:body" hx-swap="none">
+            <tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">Loading integrations...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    function escapeHtml(str) {
+        return String(str || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+    }
+
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.target.id === 'itg-list' && evt.detail.requestConfig.method === 'GET') {
+            var resp = JSON.parse(evt.detail.xhr.responseText);
+            if (resp.success && resp.data) {
+                renderIntegrations(resp.data);
+            }
+        }
+    });
+
+    function renderIntegrations(data) {
+        var list = document.getElementById('itg-list');
+        if (data.length > 0) {
+            list.innerHTML = data.map(function(i) {
+                var statusColor = i.isEnabled ? 'var(--accent-green)' : 'var(--text-muted)';
+                return '<tr><td>#' + i.id + '</td><td>' + escapeHtml(i.name) + '</td><td><code>' + escapeHtml(i.integrationType) + '</code></td><td>' + escapeHtml(i.endpoint) + '</td><td style="color:' + statusColor + ';font-weight:700;">' + escapeHtml(i.status) + '</td><td>' +
+                    '<button class="chip-btn" hx-get="/blue/integrations/form.html?id=' + i.id + '" hx-target="#panel-blue" hx-swap="innerHTML">EDIT</button> ' +
+                    '<button class="chip-btn" hx-get="/blue/integrations/logs.html?id=' + i.id + '" hx-target="#panel-blue" hx-swap="innerHTML">LOGS</button> ' +
+                    '<button class="chip-btn" hx-post="/api/Integration/' + i.id + '/test" hx-swap="none">TEST</button> ' +
+                    '<button class="chip-btn success" hx-patch="/api/Integration/' + i.id + '/toggle" hx-swap="none">TOGGLE</button> ' +
+                    '<button class="chip-btn danger" hx-delete="/api/Integration/' + i.id + '" hx-confirm="Remove connector #' + i.id + '?" hx-swap="none">DEL</button>' +
+                '</td></tr>';
+            }).join('');
+            htmx.process(list);
+        } else {
+            list.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">No active integrations.</td></tr>';
+        }
+    }
+
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.target.id === 'itg-list' && evt.detail.requestConfig.method !== 'GET') {
+            htmx.trigger('#itg-list', 'itgUpdated');
+        }
+    });
+</script>

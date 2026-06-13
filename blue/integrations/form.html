@@ -1,0 +1,61 @@
+<div class="blue-card" style="max-width:500px;">
+    <div class="card-header"><h3 id="itg-form-title">NEW INTEGRATION</h3><span class="panel-tag">INFRASTRUCTURE</span></div>
+
+    <form id="itg-form" hx-target="#itg-form-result" hx-swap="innerHTML">
+        <input type="hidden" id="itg-id" name="id">
+        <div class="form-group"><label>NAME</label><input type="text" id="itg-name" name="name" class="form-control" required autocomplete="off"></div>
+        <div class="form-group"><label>TYPE</label><select id="itg-type" name="integrationType" class="form-control"><option value="siem">SIEM</option><option value="ticketing">TICKETING</option><option value="notification">NOTIFICATION</option></select></div>
+        <div class="form-group"><label>ENDPOINT</label><input type="url" id="itg-endpoint" name="endpoint" class="form-control" required placeholder="https://" autocomplete="off"></div>
+        <div class="flex-row flex-end">
+            <button type="button" class="action-btn btn-secondary" hx-get="/blue/integrations/list.html" hx-target="#panel-blue" hx-swap="innerHTML">CANCEL</button>
+            <button type="submit" class="action-btn btn-primary" style="background:var(--accent-red);">SAVE</button>
+        </div>
+    </form>
+    <div id="itg-form-result" style="margin-top:12px;font-size:11px;"></div>
+</div>
+
+<script>
+    (function() {
+        var params = new URLSearchParams(window.location.search);
+        var id = params.get('id');
+        var form = document.getElementById('itg-form');
+
+        if (id) {
+            document.getElementById('itg-form-title').textContent = 'EDIT INTEGRATION #' + id;
+            form.setAttribute('hx-put', '/api/Integration/' + id);
+            fetch('/api/Integration/' + id)
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    if (d.success && d.data) {
+                        document.getElementById('itg-id').value = id;
+                        document.getElementById('itg-name').value = d.data.name || '';
+                        document.getElementById('itg-type').value = d.data.integrationType || 'siem';
+                        document.getElementById('itg-endpoint').value = d.data.endpoint || '';
+                    }
+                });
+        } else {
+            form.setAttribute('hx-post', '/api/Integration');
+        }
+        htmx.process(form);
+    })();
+
+    document.getElementById('itg-form').addEventListener('htmx:beforeRequest', function(evt) {
+        var fd = new FormData(evt.detail.elt);
+        var obj = {};
+        fd.forEach(function(value, key) { if (key !== 'id') obj[key] = value; });
+        evt.detail.xhr.send(JSON.stringify(obj));
+        evt.preventDefault();
+    });
+
+    document.getElementById('itg-form').addEventListener('htmx:afterRequest', function(evt) {
+        if(evt.detail.xhr.status >= 400) return;
+        var resp = JSON.parse(evt.detail.xhr.responseText);
+        var resDiv = document.getElementById('itg-form-result');
+        if (resp.success) {
+            resDiv.innerHTML = '<div style="color:var(--accent-green);font-weight:bold;">INTEGRATION SAVED</div>';
+            setTimeout(function() { htmx.ajax('GET', '/blue/integrations/list.html', { target: '#panel-blue', swap: 'innerHTML' }); }, 600);
+        } else {
+            resDiv.innerHTML = '<div style="color:var(--accent-red);font-weight:bold;">ERROR: ' + (resp.message || 'Operation failed') + '</div>';
+        }
+    });
+</script>

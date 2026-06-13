@@ -1,0 +1,88 @@
+<div class="blue-card">
+    <div class="card-header"><h3>REPORTS</h3><span class="panel-tag">DOCUMENTS</span></div>
+
+    <div class="blue-stats-strip">
+        <div class="strip-card"><span class="strip-label">TOTAL</span><span class="strip-value" id="stat-total-reports">--</span><div class="progress-bar"><div class="progress-fill" style="width:100%;background:var(--accent-blue);"></div></div></div>
+        <div class="strip-card"><span class="strip-label">LAST 7D</span><span class="strip-value" id="stat-weekly">--</span><div class="progress-bar"><div class="progress-fill" style="width:70%;background:var(--accent-violet);"></div></div></div>
+        <div class="strip-card" hx-get="/blue/reports/form.html" hx-target="#panel-blue" hx-swap="innerHTML"><span class="strip-label">NEW REPORT</span><span class="strip-value">+</span><div class="progress-bar"><div class="progress-fill" style="width:100%;background:var(--accent-green);"></div></div></div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <input type="text" id="report-filter" placeholder="Filter by title or type..." class="form-control" style="margin:0;" onkeyup="filterReports()">
+        <select id="type-filter" class="form-control" style="width:auto;margin:0;" onchange="filterReports()">
+            <option value="all">ALL</option>
+            <option value="vulnerability">VULNERABILITY</option>
+            <option value="incident">INCIDENT</option>
+            <option value="audit">AUDIT</option>
+            <option value="executive">EXECUTIVE</option>
+        </select>
+    </div>
+
+    <table class="blue-table">
+        <thead><tr><th>ID</th><th>TITLE</th><th>TYPE</th><th>CREATED</th><th>STATUS</th><th>ACTIONS</th></tr></thead>
+        <tbody id="reports-list" hx-get="/api/Report" hx-trigger="load, reportUpdated from:body" hx-swap="none">
+            <tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">Loading reports...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    var allReports = [];
+    var typeLabels = { vulnerability: 'VULNERABILITY', incident: 'INCIDENT', audit: 'AUDIT', executive: 'EXECUTIVE' };
+
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.target.id === 'reports-list' && evt.detail.requestConfig.method === 'GET') {
+            var resp = JSON.parse(evt.detail.xhr.responseText);
+            if (resp.success && resp.data) {
+                allReports = resp.data;
+                document.getElementById('stat-total-reports').textContent = resp.data.length;
+                var weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+                document.getElementById('stat-weekly').textContent = resp.data.filter(function(r){ return new Date(r.createdAt) > weekAgo; }).length;
+                renderReports(allReports);
+            }
+        }
+    });
+
+    function renderReports(data) {
+        var list = document.getElementById('reports-list');
+        if (data.length > 0) {
+            list.innerHTML = data.map(function(r) {
+                return '<tr><td>#' + r.id + '</td><td>' + (r.title || 'N/A') + '</td><td style="color:var(--accent-violet);font-weight:700;">' + (typeLabels[r.type] || r.type || 'N/A') + '</td><td>' + (r.createdAt ? new Date(r.createdAt).toLocaleDateString('pt-BR') : '--') + '</td><td style="color:' + (r.isDeleted ? 'var(--accent-red)' : 'var(--accent-green)') + ';">' + (r.isDeleted ? 'DELETED' : 'ACTIVE') + '</td><td>' +
+                    '<button class="chip-btn" hx-get="/blue/reports/form.html?id=' + r.id + '" hx-target="#panel-blue" hx-swap="innerHTML">EDIT</button> ' +
+                    '<button class="chip-btn" onclick="exportPdf(' + r.id + ')">PDF</button> ' +
+                    '<button class="chip-btn" onclick="exportJson(' + r.id + ')">JSON</button> ' +
+                    '<button class="chip-btn success" hx-patch="/api/Report/' + r.id + '/restore" hx-swap="none">REST</button> ' +
+                    '<button class="chip-btn danger" hx-delete="/api/Report/' + r.id + '" hx-confirm="Remove #' + r.id + '?" hx-swap="none">DEL</button>' +
+                '</td></tr>';
+            }).join('');
+            htmx.process(list);
+        } else {
+            list.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">No reports generated.</td></tr>';
+        }
+    }
+
+    function filterReports() {
+        var text = (document.getElementById('report-filter').value || '').toLowerCase();
+        var type = document.getElementById('type-filter').value;
+        var filtered = allReports.filter(function(r) {
+            var matchText = !text || (r.title || '').toLowerCase().includes(text);
+            var matchType = type === 'all' || r.type === type;
+            return matchText && matchType;
+        });
+        renderReports(filtered);
+    }
+
+    function exportPdf(id) {
+        window.open('/api/Report/' + id + '/export/pdf', '_blank');
+    }
+
+    function exportJson(id) {
+        window.open('/api/Report/' + id + '/export/json', '_blank');
+    }
+
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.target.id === 'reports-list' && evt.detail.requestConfig.method !== 'GET') {
+            htmx.trigger('#reports-list', 'reportUpdated');
+        }
+    });
+</script>

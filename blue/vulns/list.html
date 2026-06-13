@@ -1,0 +1,126 @@
+<div class="blue-card">
+    <div class="card-header">
+        <h3>VULNERABILITIES</h3>
+        <span class="panel-tag">CVE DATABASE</span>
+    </div>
+
+    <div class="blue-stats-strip">
+        <div class="strip-card" id="vuln-stats-card">
+            <span class="strip-label">TOTAL VULNS</span>
+            <span class="strip-value" id="stat-total">--</span>
+            <div class="progress-bar"><div class="progress-fill" style="width:100%;background:var(--accent-blue);"></div></div>
+        </div>
+        <div class="strip-card">
+            <span class="strip-label">CRITICAL</span>
+            <span class="strip-value" id="stat-critical">--</span>
+            <div class="progress-bar"><div class="progress-fill" style="width:100%;background:var(--accent-red);"></div></div>
+        </div>
+        <div class="strip-card" hx-get="/blue/vulns/form.html" hx-target="#panel-blue" hx-swap="innerHTML">
+            <span class="strip-label">NEW VULN</span>
+            <span class="strip-value">+</span>
+            <div class="progress-bar"><div class="progress-fill" style="width:100%;background:var(--accent-green);"></div></div>
+        </div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <input type="text" id="vuln-filter" placeholder="Filter by CVE or name..." class="form-control" style="margin:0;" onkeyup="filterVulns()">
+        <select id="severity-filter" class="form-control" style="width:auto;margin:0;" onchange="filterVulns()">
+            <option value="all">ALL</option>
+            <option value="0">CRITICAL</option>
+            <option value="1">HIGH</option>
+            <option value="2">MEDIUM</option>
+            <option value="3">LOW</option>
+        </select>
+    </div>
+
+    <table class="blue-table">
+        <thead><tr><th>ID</th><th>CVE</th><th>NAME</th><th>SEVERITY</th><th>ASSET</th><th>ACTIONS</th></tr></thead>
+        <tbody id="vulns-list" hx-get="/api/Vuln" hx-trigger="load, vulnUpdated from:body" hx-headers='js:{"Authorization":"Bearer "+localStorage.getItem("abitat_token")}' hx-swap="none">
+            <tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">Loading vulnerabilities...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    var allVulns = [];
+    var sevColors = ['var(--accent-red)','var(--accent-orange)','var(--accent-amber)','var(--accent-blue)'];
+    var sevLabels = ['CRITICAL','HIGH','MEDIUM','LOW'];
+    var sevClasses = ['severity-critical','severity-high','severity-medium','severity-low'];
+
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.target.id === 'vulns-list' && evt.detail.requestConfig.method === 'GET') {
+            var resp = JSON.parse(evt.detail.xhr.responseText);
+            if (resp.success && resp.data) {
+                allVulns = resp.data;
+                document.getElementById('stat-total').textContent = resp.data.length;
+                document.getElementById('stat-critical').textContent = resp.data.filter(function(v){ return v.severity === 0; }).length;
+                renderVulns(allVulns);
+            }
+        }
+    });
+
+    function renderVulns(data) {
+        var list = document.getElementById('vulns-list');
+        if (data.length > 0) {
+            list.innerHTML = data.map(function(v) {
+                var sevIdx = v.severity !== undefined ? v.severity : 2;
+                var isDeleted = v.isDeleted === true;
+                var toggleAction = isDeleted ? 'hx-patch="/api/Vuln/' + v.id + '/restore"' : 'hx-delete="/api/Vuln/' + v.id + '"';
+                var toggleLabel = isDeleted ? 'RESTORE' : 'DISABLE';
+                var toggleClass = isDeleted ? 'btn-success-light' : 'btn-danger-light';
+                return '<tr style="' + (isDeleted ? 'opacity:0.4;' : '') + '">' +
+                    '<td>#' + v.id + '</td>' +
+                    '<td><code>' + (v.cve || 'N/A') + '</code></td>' +
+                    '<td>' + (v.name || 'N/A') + '</td>' +
+                    '<td class="' + (sevClasses[sevIdx] || '') + '">' + (sevLabels[sevIdx] || 'N/A') + '</td>' +
+                    '<td>' + (v.assetId || '--') + '</td>' +
+                    '<td>' +
+                        '<button class="action-btn" hx-get="/blue/vulns/form.html?id=' + v.id + '" hx-target="#panel-blue" hx-swap="innerHTML">EDIT</button> ' +
+                        '<button class="action-btn" onclick="linkToAsset(' + v.id + ')">LINK</button> ' +
+                        '<button class="action-btn ' + toggleClass + '" ' + toggleAction + ' hx-headers=\'js:{"Authorization":"Bearer "+localStorage.getItem("abitat_token")}\' hx-trigger="click" hx-target="#vulns-list" hx-swap="none">' + toggleLabel + '</button> ' +
+                        '<button class="action-btn" onclick="showVulnRelations(' + v.id + ')">REL</button>' +
+                    '</td></tr>';
+            }).join('');
+            htmx.process(list);
+        } else {
+            list.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">No vulnerabilities mapped.</td></tr>';
+        }
+    }
+
+    function filterVulns() {
+        var text = (document.getElementById('vuln-filter').value || '').toLowerCase();
+        var sev = document.getElementById('severity-filter').value;
+        var filtered = allVulns.filter(function(v) {
+            var matchText = !text || (v.cve || '').toLowerCase().includes(text) || (v.name || '').toLowerCase().includes(text);
+            var matchSev = sev === 'all' || v.severity === parseInt(sev);
+            return matchText && matchSev;
+        });
+        renderVulns(filtered);
+    }
+
+    function linkToAsset(vulnId) {
+        var assetId = prompt('Asset ID:');
+        if (!assetId) return;
+        fetch('/api/Vuln/' + assetId + '/vulns', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('abitat_token'), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ vulnId: parseInt(vulnId) })
+        }).then(function() { htmx.trigger('#vulns-list', 'vulnUpdated'); });
+    }
+
+    function showVulnRelations(vulnId) {
+        var assetId = prompt('Related Asset ID:');
+        if (!assetId) return;
+        fetch('/api/Vuln/' + assetId + '/vulns', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('abitat_token'), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ vulnId: parseInt(vulnId) })
+        }).then(function() { htmx.trigger('#vulns-list', 'vulnUpdated'); });
+    }
+
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.target.id === 'vulns-list' && evt.detail.requestConfig.method !== 'GET') {
+            htmx.trigger('#vulns-list', 'vulnUpdated');
+        }
+    });
+</script>

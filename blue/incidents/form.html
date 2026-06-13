@@ -1,0 +1,64 @@
+<div class="blue-card" style="max-width:500px;">
+    <div class="card-header"><h3 id="incident-form-title">NEW INCIDENT</h3><span class="panel-tag">SIEM</span></div>
+
+    <form id="incident-form" hx-target="#incident-form-result" hx-swap="innerHTML">
+        <input type="hidden" id="incident-id" name="id">
+        <div class="form-group"><label>TITLE</label><input type="text" id="incident-title" name="title" class="form-control" required autocomplete="off"></div>
+        <div class="form-group"><label>DESCRIPTION</label><textarea id="incident-desc" name="description" class="form-control" rows="3"></textarea></div>
+        <div class="form-group"><label>SEVERITY</label><select id="incident-severity" name="severity" class="form-control"><option value="0">CRITICAL</option><option value="1">HIGH</option><option value="2">MEDIUM</option><option value="3">LOW</option></select></div>
+        <div class="flex-row flex-end">
+            <button type="button" class="action-btn btn-secondary" hx-get="/blue/incidents/list.html" hx-target="#panel-blue" hx-swap="innerHTML">CANCEL</button>
+            <button type="submit" class="action-btn btn-primary" style="background:var(--accent-orange);">SAVE</button>
+        </div>
+    </form>
+    <div id="incident-form-result" style="margin-top:12px;font-size:11px;"></div>
+</div>
+
+<script>
+    (function() {
+        var params = new URLSearchParams(window.location.search);
+        var id = params.get('id');
+        var form = document.getElementById('incident-form');
+        var token = localStorage.getItem('abitat_token');
+        var headers = JSON.stringify({ 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' });
+
+        if (id) {
+            document.getElementById('incident-form-title').textContent = 'EDIT INCIDENT #' + id;
+            form.setAttribute('hx-put', 'http://localhost:5073/api/Incident/' + id);
+            fetch('http://localhost:5073/api/Incident/' + id, { headers: { 'Authorization': 'Bearer ' + token } })
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    if (d.success && d.data) {
+                        document.getElementById('incident-id').value = id;
+                        document.getElementById('incident-title').value = d.data.title || '';
+                        document.getElementById('incident-desc').value = d.data.description || '';
+                        document.getElementById('incident-severity').value = d.data.severity || 2;
+                    }
+                });
+        } else {
+            form.setAttribute('hx-post', 'http://localhost:5073/api/Incident');
+        }
+        form.setAttribute('hx-headers', headers);
+        htmx.process(form);
+    })();
+
+    document.getElementById('incident-form').addEventListener('htmx:beforeRequest', function(evt) {
+        var inputs = evt.detail.elt;
+        var fd = new FormData(inputs);
+        var obj = {};
+        fd.forEach(function(value, key) { if (key !== 'id') obj[key] = isNaN(value) ? value : parseInt(value); });
+        evt.detail.xhr.send(JSON.stringify(obj));
+        evt.preventDefault();
+    });
+
+    document.getElementById('incident-form').addEventListener('htmx:afterRequest', function(evt) {
+        var resp = JSON.parse(evt.detail.xhr.responseText);
+        var resDiv = document.getElementById('incident-form-result');
+        if (resp.success) {
+            resDiv.innerHTML = '<div style="color:var(--accent-green);font-weight:bold;">INCIDENT SAVED</div>';
+            setTimeout(function() { htmx.ajax('GET', '/blue/incidents/list.html', { target: '#panel-blue', swap: 'innerHTML' }); }, 600);
+        } else {
+            resDiv.innerHTML = '<div style="color:var(--accent-red);font-weight:bold;">ERROR: ' + (resp.message || 'Operation failed') + '</div>';
+        }
+    });
+</script>

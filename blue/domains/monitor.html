@@ -1,0 +1,131 @@
+<div class="blue-card">
+    <div class="card-header">
+        <h3>DOMAIN MONITOR</h3>
+        <span class="panel-tag" style="background:rgba(122,184,138,0.1);color:var(--accent-green);border-color:rgba(122,184,138,0.2);">LIVE</span>
+    </div>
+
+    <div class="blue-stats-strip">
+        <div class="strip-card">
+            <span class="strip-label">DOMAINS</span>
+            <span class="strip-value" id="dom-total">--</span>
+            <div class="progress-bar"><div class="progress-fill" style="width:100%;background:var(--accent-green);"></div></div>
+        </div>
+        <div class="strip-card">
+            <span class="strip-label">ONLINE</span>
+            <span class="strip-value" id="dom-online">--</span>
+            <div class="progress-bar"><div class="progress-fill" style="width:100%;background:var(--accent-blue);"></div></div>
+        </div>
+        <div class="strip-card">
+            <span class="strip-label">REQUESTS</span>
+            <span class="strip-value" id="dom-requests">--</span>
+            <div class="progress-bar"><div class="progress-fill" style="width:100%;background:var(--accent-violet);"></div></div>
+        </div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <input type="text" id="domain-input" placeholder="Add domain to monitor..." class="form-control" style="margin:0;" onkeypress="if(event.key==='Enter')addDomain()">
+        <button class="action-btn btn-primary" onclick="addDomain()" style="width:auto;">MONITOR</button>
+        <button class="action-btn btn-secondary" onclick="checkAllDomains()" style="width:auto;">CHECK ALL</button>
+    </div>
+
+    <div class="domain-list" id="domain-observe">
+        <div style="text-align:center;padding:20px;color:var(--text-muted);">No domains monitored.</div>
+    </div>
+</div>
+
+<script>
+    var monitoredDomains = JSON.parse(localStorage.getItem('blue_domains') || '[]');
+
+    function saveDomains() { localStorage.setItem('blue_domains', JSON.stringify(monitoredDomains)); }
+    
+    function addDomain() {
+        var input = document.getElementById('domain-input');
+        var domain = input.value.trim();
+        if (!domain) return;
+        
+        domain = domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
+        
+        if (monitoredDomains.find(function(d){ return d.url === domain; })) {
+            alert('Domain already monitored.');
+            return;
+        }
+        
+        monitoredDomains.push({ url: domain, status: 'checking', code: null, time: null, lastCheck: null });
+        input.value = '';
+        saveDomains();
+        renderDomains();
+        checkDomain(monitoredDomains.length - 1);
+    }
+
+    function checkDomain(index) {
+        var domain = monitoredDomains[index];
+        domain.status = 'checking';
+        renderDomains();
+        
+        var startTime = Date.now();
+        fetch('https://' + domain.url, { mode: 'no-cors' })
+            .then(function(r) {
+                domain.status = 'online';
+                domain.code = r.status || r.type === 'opaque' ? 'OK' : r.status;
+                domain.time = Date.now() - startTime;
+                domain.lastCheck = new Date().toISOString();
+                saveDomains();
+                renderDomains();
+                updateStats();
+            })
+            .catch(function() {
+                domain.status = 'offline';
+                domain.code = 'ERR';
+                domain.time = Date.now() - startTime;
+                domain.lastCheck = new Date().toISOString();
+                saveDomains();
+                renderDomains();
+                updateStats();
+            });
+    }
+
+    function checkAllDomains() {
+        monitoredDomains.forEach(function(d, i) { checkDomain(i); });
+    }
+
+    function removeDomain(index) {
+        monitoredDomains.splice(index, 1);
+        saveDomains();
+        renderDomains();
+        updateStats();
+    }
+
+    function renderDomains() {
+        var list = document.getElementById('domain-observe');
+        if (monitoredDomains.length === 0) {
+            list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">No domains monitored.</div>';
+        } else {
+            list.innerHTML = monitoredDomains.map(function(d, i) {
+                return '<div class="domain-item">' +
+                    '<div style="flex:1;">' +
+                        '<div class="domain-url">' + d.url + '</div>' +
+                        '<div class="domain-info">' +
+                            (d.code ? 'CODE: ' + d.code + ' | ' : '') +
+                            (d.time ? d.time + 'ms | ' : '') +
+                            (d.lastCheck ? 'LAST: ' + new Date(d.lastCheck).toLocaleTimeString('pt-BR') : 'NEVER') +
+                        '</div>' +
+                    '</div>' +
+                    '<div style="display:flex;align-items:center;gap:8px;">' +
+                        '<span class="domain-status ' + d.status + '">' + d.status.toUpperCase() + '</span>' +
+                        '<button class="action-btn" onclick="checkDomain(' + i + ')" style="font-size:9px;padding:4px 6px;">↻</button>' +
+                        '<button class="action-btn" onclick="removeDomain(' + i + ')" style="font-size:9px;padding:4px 6px;color:var(--accent-red);">✕</button>' +
+                    '</div>' +
+                '</div>';
+            }).join('');
+        }
+    }
+
+    function updateStats() {
+        document.getElementById('dom-total').textContent = monitoredDomains.length;
+        document.getElementById('dom-online').textContent = monitoredDomains.filter(function(d){ return d.status === 'online'; }).length;
+        document.getElementById('dom-requests').textContent = monitoredDomains.filter(function(d){ return d.lastCheck; }).length;
+    }
+
+    renderDomains();
+    updateStats();
+</script>

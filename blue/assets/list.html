@@ -1,0 +1,112 @@
+<div class="blue-card">
+    <div class="card-header">
+        <h3>ASSETS</h3>
+        <span class="panel-tag">INVENTORY</span>
+    </div>
+
+    <div class="blue-stats-strip">
+        <div class="strip-card" id="asset-stats-card">
+            <span class="strip-label">TOTAL ASSETS</span>
+            <span class="strip-value" id="asset-count">--</span>
+            <div class="progress-bar"><div class="progress-fill" style="width:100%;background:var(--accent-blue);"></div></div>
+        </div>
+        <div class="strip-card">
+            <span class="strip-label">ACTIVE</span>
+            <span class="strip-value" id="asset-active">--</span>
+            <div class="progress-bar"><div class="progress-fill" style="width:100%;background:var(--accent-green);"></div></div>
+        </div>
+        <div class="strip-card" hx-get="/blue/assets/form.html" hx-target="#panel-blue" hx-swap="innerHTML">
+            <span class="strip-label">NEW ASSET</span>
+            <span class="strip-value">+</span>
+            <div class="progress-bar"><div class="progress-fill" style="width:100%;background:var(--accent-green);"></div></div>
+        </div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <input type="text" id="asset-filter" placeholder="Filter by name or IP..." class="form-control" style="margin:0;" onkeyup="filterAssets()">
+        <select id="type-filter" class="form-control" style="width:auto;margin:0;" onchange="filterAssets()">
+            <option value="all">ALL</option>
+            <option value="server">SERVER</option>
+            <option value="workstation">WORKSTATION</option>
+            <option value="network">NETWORK</option>
+            <option value="cloud">CLOUD</option>
+            <option value="iot">IOT</option>
+        </select>
+    </div>
+
+    <table class="blue-table">
+        <thead><tr><th>ID</th><th>NAME</th><th>IP</th><th>TYPE</th><th>STATUS</th><th>ACTIONS</th></tr></thead>
+        <tbody id="assets-list" hx-get="http://localhost:5073/api/Asset" hx-trigger="load, assetUpdated from:body" hx-headers='js:{"Authorization":"Bearer "+localStorage.getItem("abitat_token")}' hx-swap="none">
+            <tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">Loading assets...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    var allAssets = [];
+
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.target.id === 'assets-list') {
+            var resp = JSON.parse(evt.detail.xhr.responseText);
+            if (resp.success && resp.data) {
+                allAssets = resp.data;
+                document.getElementById('asset-count').textContent = resp.data.length;
+                document.getElementById('asset-active').textContent = resp.data.filter(function(a){ return a.isActive !== false; }).length;
+                renderAssets(allAssets);
+            }
+        }
+    });
+
+    function renderAssets(data) {
+        var list = document.getElementById('assets-list');
+        if (data.length > 0) {
+            list.innerHTML = data.map(function(a) {
+                var statusHtml = a.isActive !== false ? '<span class="status-active">ACTIVE</span>' : '<span class="status-inactive">INACTIVE</span>';
+                var toggleAction = a.isActive !== false ? 'hx-delete="http://localhost:5073/api/Asset/' + a.id + '"' : 'hx-patch="http://localhost:5073/api/Asset/' + a.id + '/enable"';
+                var toggleLabel = a.isActive !== false ? 'DISABLE' : 'ENABLE';
+                return '<tr>' +
+                    '<td>#' + a.id + '</td>' +
+                    '<td>' + (a.name || 'N/A') + '</td>' +
+                    '<td><code>' + (a.ip || 'N/A') + '</code></td>' +
+                    '<td>' + (a.type || 'N/A').toUpperCase() + '</td>' +
+                    '<td>' + statusHtml + '</td>' +
+                    '<td>' +
+                        '<button class="action-btn" hx-get="/blue/assets/form.html?id=' + a.id + '" hx-target="#panel-blue" hx-swap="innerHTML">EDIT</button> ' +
+                        '<button class="action-btn" ' + toggleAction + ' hx-headers=\'js:{"Authorization":"Bearer "+localStorage.getItem("abitat_token")}\' hx-trigger="click" hx-target="#assets-list" hx-swap="none">' + toggleLabel + '</button> ' +
+                        '<button class="action-btn" onclick="showRelations(' + a.id + ')">REL</button> ' +
+                        '<button class="action-btn btn-danger-light" hx-delete="http://localhost:5073/api/Asset/' + a.id + '" hx-headers=\'js:{"Authorization":"Bearer "+localStorage.getItem("abitat_token")}\' hx-confirm="Remove #' + a.id + '?" hx-target="#assets-list" hx-swap="none">DEL</button>' +
+                    '</td></tr>';
+            }).join('');
+            htmx.process(list);
+        } else {
+            list.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">No assets mapped.</td></tr>';
+        }
+    }
+
+    function filterAssets() {
+        var text = (document.getElementById('asset-filter').value || '').toLowerCase();
+        var type = document.getElementById('type-filter').value;
+        var filtered = allAssets.filter(function(a) {
+            var matchText = !text || (a.name || '').toLowerCase().includes(text) || (a.ip || '').toLowerCase().includes(text);
+            var matchType = type === 'all' || a.type === type;
+            return matchText && matchType;
+        });
+        renderAssets(filtered);
+    }
+
+    function showRelations(id) {
+        var rid = prompt('Related Asset ID:');
+        if (!rid) return;
+        var action = confirm('Click OK to LINK, Cancel to UNLINK');
+        var method = action ? 'POST' : 'DELETE';
+        var url = 'http://localhost:5073/api/Asset/' + id + '/related/' + rid;
+        fetch(url, { method: method, headers: { 'Authorization': 'Bearer ' + localStorage.getItem('abitat_token') } })
+            .then(function() { htmx.trigger('#assets-list', 'assetUpdated'); });
+    }
+
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.target.id === 'assets-list' && evt.detail.requestConfig.method !== 'GET') {
+            htmx.trigger('#assets-list', 'assetUpdated');
+        }
+    });
+</script>

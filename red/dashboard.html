@@ -1,0 +1,176 @@
+<div class="red-dashboard">
+    <div class="red-topbar">
+        <div class="red-brand">
+            <span class="red-logo">RED EXPLOIT</span>
+            <span class="red-sub">PENETRATION TESTING FRAMEWORK</span>
+        </div>
+        <div class="red-telemetry" hx-get="http://localhost:5074/api/Exploit/sessions" hx-trigger="load, every 15s" hx-swap="none">
+            <div class="tel-item"><span class="status-dot red-pulse"></span>SESSIONS: <strong class="txt-red" id="cmd-sessions">0</strong></div>
+            <div class="tel-item"><span class="status-dot orange-pulse"></span>TOOLS: <strong class="txt-orange" id="cmd-tools">0</strong></div>
+            <div class="tel-item"><span class="status-dot green-pulse"></span>TARGETS: <strong class="txt-green" id="cmd-target">--</strong></div>
+        </div>
+    </div>
+    <div class="red-main-layout">
+        <div class="red-target-panel">
+            <div class="section-header">
+                <div class="section-title">TARGETS</div>
+                <div class="target-actions">
+                    <button class="quick-btn accent" onclick="clearTargets()">CLEAR ALL</button>
+                    <button class="quick-btn" hx-get="/red/scans/list.html" hx-target="#panel-red" hx-swap="innerHTML">SCANS</button>
+                    <button class="quick-btn" hx-get="/red/exploits/list.html" hx-target="#panel-red" hx-swap="innerHTML">EXPLOITS</button>
+                    <button class="quick-btn" hx-get="/red/monitor.html" hx-target="#panel-red" hx-swap="innerHTML">MONITOR</button>
+                </div>
+            </div>
+            <div class="target-input-row">
+                <input type="text" class="target-input" id="target-input" placeholder="IPAddress / Hostname" onkeydown="if(event.key==='Enter')addTarget()">
+                <button class="action-btn primary" onclick="addTarget()">ADD TARGET</button>
+            </div>
+            <div class="target-list" id="target-list"></div>
+        </div>
+        <div class="red-tools-panel" id="tools-panel" style="display:none;">
+            <div class="tools-column">
+                <div class="section-title scan">SCAN OPERATIONS</div>
+                <div class="tools-grid">
+                    <div class="tool-card scan" onclick="openModal('nmap')"><span class="tool-card-name">NMAP</span></div>
+                    <div class="tool-card scan" onclick="openModal('nikto')"><span class="tool-card-name">NIKTO</span></div>
+                    <div class="tool-card scan" onclick="openModal('gobuster')"><span class="tool-card-name">GOBUSTER</span></div>
+                    <div class="tool-card scan" onclick="openModal('hydra')"><span class="tool-card-name">HYDRA</span></div>
+                    <div class="tool-card scan" onclick="openModal('sqlmap')"><span class="tool-card-name">SQLMAP</span></div>
+                    <div class="tool-card scan" onclick="openModal('wfuzz')"><span class="tool-card-name">WFUZZ</span></div>
+                </div>
+            </div>
+            <div class="tools-column">
+                <div class="section-title pent">EXPLOIT OPERATIONS</div>
+                <div class="tools-grid">
+                    <div class="tool-card pent" onclick="openModal('metasploit')"><span class="tool-card-name">METASPLOIT</span></div>
+                    <div class="tool-card pent" onclick="openModal('sharpsploit')"><span class="tool-card-name">SHARPSPLOIT</span></div>
+                    <div class="tool-card pent" onclick="openModal('impacket')"><span class="tool-card-name">IMPACKET</span></div>
+                    <div class="tool-card pent" onclick="openModal('hashcat')"><span class="tool-card-name">HASHCAT</span></div>
+                    <div class="tool-card pent" onclick="openModal('responder')"><span class="tool-card-name">RESPONDER</span></div>
+                    <div class="tool-card pent" onclick="openModal('bloodhound')"><span class="tool-card-name">BLOODHOUND</span></div>
+                    <div class="tool-card pent" onclick="openModal('covenant')"><span class="tool-card-name">COVENANT</span></div>
+                    <div class="tool-card pent" onclick="openModal('sliver')"><span class="tool-card-name">SLIVER</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-overlay" id="red-modal-overlay" onclick="closeModal()">
+        <div class="modal-container" id="red-modal-container" onclick="event.stopPropagation()"><div class="modal-loading">Loading...</div></div>
+    </div>
+</div>
+<script>
+(function() {
+    var targets = JSON.parse(localStorage.getItem('red_targets') || '[]');
+    var selectedTarget = localStorage.getItem('red_target') || '';
+
+    function init() {
+        if (selectedTarget) document.getElementById('tools-panel').style.display = 'flex';
+        renderTargets();
+        updateCount();
+    }
+
+    function saveTargets() {
+        localStorage.setItem('red_targets', JSON.stringify(targets));
+        renderTargets();
+        updateCount();
+    }
+
+    function updateCount() {
+        document.getElementById('cmd-target').textContent = targets.length > 0 ? targets.length + ' TARGETS' : '--';
+    }
+
+    function toggleTools() {
+        document.getElementById('tools-panel').style.display = selectedTarget ? 'flex' : 'none';
+    }
+
+    window.addTarget = function() {
+        var input = document.getElementById('target-input');
+        var value = input.value.trim();
+        if (value && targets.indexOf(value) === -1) {
+            targets.push(value);
+            saveTargets();
+        }
+        input.value = '';
+    };
+
+    window.removeTarget = function(idx) {
+        var removed = targets[idx];
+        targets.splice(idx, 1);
+        if (removed === selectedTarget) {
+            selectedTarget = '';
+            localStorage.removeItem('red_target');
+        }
+        saveTargets();
+        toggleTools();
+    };
+
+    window.selectTarget = function(idx) {
+        selectedTarget = (selectedTarget === targets[idx]) ? '' : targets[idx];
+        if (selectedTarget) localStorage.setItem('red_target', selectedTarget);
+        else localStorage.removeItem('red_target');
+        renderTargets();
+        toggleTools();
+    };
+
+    window.clearTargets = function() {
+        targets = [];
+        selectedTarget = '';
+        localStorage.removeItem('red_target');
+        saveTargets();
+        toggleTools();
+    };
+
+    window.openModal = function(tool) {
+        if (!selectedTarget) {
+            alert('Select a target first.');
+            return;
+        }
+        var overlay = document.getElementById('red-modal-overlay');
+        var container = document.getElementById('red-modal-container');
+        container.innerHTML = '<div class="modal-loading">Loading ' + tool.toUpperCase() + '...</div>';
+        overlay.classList.add('open');
+
+        var type = (['nmap','nikto','gobuster','hydra','sqlmap','wfuzz'].indexOf(tool) !== -1) ? 'scan' : 'exploit';
+        var url = '/red/tool.html?type=' + type + '&tool=' + tool + '&target=' + encodeURIComponent(selectedTarget);
+
+        fetch(url)
+            .then(function(r) { return r.text(); })
+            .then(function(html) {
+                container.innerHTML = html;
+                var targetInput = document.getElementById('tool-target');
+                if (targetInput) {
+                    targetInput.value = selectedTarget;
+                }
+                var scripts = container.querySelectorAll('script');
+                scripts.forEach(function(script) {
+                    var newScript = document.createElement('script');
+                    newScript.textContent = script.textContent;
+                    document.body.appendChild(newScript).parentNode.removeChild(newScript);
+                });
+                if (typeof updatePreview === 'function') {
+                    updatePreview();
+                }
+            })
+            .catch(function() {
+                container.innerHTML = '<div class="modal-loading" style="color:var(--accent-red);">Failed to load ' + tool.toUpperCase() + '</div>';
+            });
+    };
+
+    window.closeModal = function() {
+        document.getElementById('red-modal-overlay').classList.remove('open');
+    };
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeModal();
+    });
+
+    function renderTargets() {
+        var list = document.getElementById('target-list');
+        list.innerHTML = targets.map(function(t, i) {
+            return '<div class="target-item ' + (t === selectedTarget ? 'selected' : '') + '" onclick="selectTarget(' + i + ')"><span class="target-item-ip">' + t + '</span><span class="target-item-remove" onclick="event.stopPropagation();removeTarget(' + i + ')">x</span></div>';
+        }).join('');
+    }
+
+    init();
+})();
+</script>

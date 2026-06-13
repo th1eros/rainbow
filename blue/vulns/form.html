@@ -1,0 +1,69 @@
+<div class="blue-card" style="max-width:500px;">
+    <div class="card-header"><h3 id="vuln-form-title">NEW VULNERABILITY</h3><span class="panel-tag">CVE DATABASE</span></div>
+
+    <form id="vuln-form" hx-target="#vuln-form-result" hx-swap="innerHTML">
+        <input type="hidden" id="vuln-id" name="id">
+        <div class="form-group"><label>CVE</label><input type="text" id="vuln-cve" name="cve" placeholder="CVE-2024-XXXX" class="form-control" autocomplete="off"></div>
+        <div class="form-group"><label>NAME</label><input type="text" id="vuln-name" name="name" class="form-control" required autocomplete="off"></div>
+        <div class="form-group"><label>SEVERITY</label><select id="vuln-severity" name="severity" class="form-control"><option value="0">CRITICAL</option><option value="1">HIGH</option><option value="2">MEDIUM</option><option value="3">LOW</option></select></div>
+        <div class="form-group"><label>DESCRIPTION</label><textarea id="vuln-desc" name="description" class="form-control" rows="3"></textarea></div>
+        <div class="form-group"><label>ASSET ID</label><input type="number" id="vuln-asset" name="assetId" class="form-control"></div>
+        <div class="flex-row flex-end">
+            <button type="button" class="action-btn btn-secondary" hx-get="/blue/vulns/list.html" hx-target="#panel-blue" hx-swap="innerHTML">CANCEL</button>
+            <button type="submit" class="action-btn btn-primary" style="background:var(--accent-red);">SAVE</button>
+        </div>
+    </form>
+    <div id="vuln-form-result" style="margin-top:12px;font-size:11px;"></div>
+</div>
+
+<script>
+    (function() {
+        var params = new URLSearchParams(window.location.search);
+        var id = params.get('id');
+        var form = document.getElementById('vuln-form');
+
+        if (id) {
+            document.getElementById('vuln-form-title').textContent = 'EDIT VULN #' + id;
+            form.setAttribute('hx-put', '/api/Vuln/' + id);
+            fetch('/api/Vuln/' + id, { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('abitat_token') } })
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    if (d.success && d.data) {
+                        document.getElementById('vuln-id').value = id;
+                        document.getElementById('vuln-cve').value = d.data.cve || '';
+                        document.getElementById('vuln-name').value = d.data.name || '';
+                        document.getElementById('vuln-severity').value = d.data.severity ?? 2;
+                        document.getElementById('vuln-desc').value = d.data.description || '';
+                        document.getElementById('vuln-asset').value = d.data.assetId || '';
+                    }
+                });
+        } else {
+            form.setAttribute('hx-post', '/api/Vuln');
+        }
+        htmx.process(form);
+    })();
+
+    document.getElementById('vuln-form').addEventListener('htmx:beforeRequest', function(evt) {
+        var fd = new FormData(evt.detail.elt);
+        var obj = {};
+        fd.forEach(function(value, key) { 
+            if (key !== 'id') {
+                obj[key] = (key === 'severity' || key === 'assetId') && value !== '' ? parseInt(value) : value;
+            }
+        });
+        evt.detail.xhr.send(JSON.stringify(obj));
+        evt.preventDefault();
+    });
+
+    document.getElementById('vuln-form').addEventListener('htmx:afterRequest', function(evt) {
+        if(evt.detail.xhr.status >= 400) return;
+        var resp = JSON.parse(evt.detail.xhr.responseText);
+        var resDiv = document.getElementById('vuln-form-result');
+        if (resp.success) {
+            resDiv.innerHTML = '<div style="color:var(--accent-green);font-weight:bold;">VULNERABILITY SAVED</div>';
+            setTimeout(function() { htmx.ajax('GET', '/blue/vulns/list.html', { target: '#panel-blue', swap: 'innerHTML' }); }, 600);
+        } else {
+            resDiv.innerHTML = '<div style="color:var(--accent-red);font-weight:bold;">ERROR: ' + (resp.message || 'Operation failed') + '</div>';
+        }
+    });
+</script>
