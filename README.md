@@ -1,108 +1,109 @@
-# 🟣 Violet Lab - Multi-Environment Deployment
+# aBitat Command Center
 
-Laboratórios isolados com deploy multi-ambiente via GitHub (GitOps).
+**Red Team | Blue Team | Violet Lab | Silver AI**
 
-## 🚀 Deploy Rápido
+Plataforma unificada de operacoes de ciberseguranca com 4 modulos integrados via HTMX e .NET 8.
 
-1. Configure os labs no dashboard Violet
-2. Clique em **_EXPORT CONFIG** → baixa o JSON
-3. Suba o JSON no GitHub
-4. Em outro servidor, clique em **_DEPLOY FROM GITHUB**
-5. Cole a URL Raw → todos os labs carregam automaticamente
-
-## 📦 Estrutura do Config
-
-json
-{
-  "version": "2.0",
-  "exportedAt": "2026-06-10T00:00:00Z",
-  "environment": "production",
-  "client": "Empresa XYZ",
-  "labs": [
-    {
-      "name": "KALI-PROD-01",
-      "os": "kali",
-      "status": "online",
-      "ip": "10.10.20.15",
-      "image": "kalilinux/kali-rolling:latest",
-      "network": "isolated",
-      "purpose": "pentest"
-    }
-  ],
-  "networkPolicy": {
-    "defaultMode": "isolated",
-    "allowedEgress": ["blue.rapsodia.com:5073"],
-    "dnsServers": ["8.8.8.8"]
-  },
-  "snapshots": {
-    "autoSnapshot": true,
-    "schedule": "0 */12 * * *",
-    "retention": 7
-  },
-  "history": []
-}
 ---
-🌍 Ambientes
-Ambiente	Arquivo	URL Raw
-Desenvolvimento	dev.json	github.com/.../dev.json
-Staging	staging.json	github.com/.../staging.json
-Produção	production.json	github.com/.../production.json
-Cliente XYZ	cliente-xyz.json	github.com/.../cliente-xyz.json
-🎯 Funcionalidades
-Multiplicador de instâncias: +1, +2, +4 nós com um clique
 
-Toggle Start/Stop: Liga e desliga labs individualmente
+## Stack
 
-Snapshots: Individuais ou em lote
+| Camada | Tecnologia |
+|--------|-----------|
+| Frontend | HTMX 1.9 + JavaScript (Vanilla) |
+| Estilo | CSS3 com Design System proprio (variaveis CSS) |
+| Backend | .NET 8 (4 microservicos) |
+| Cache | Redis (StackExchange.Redis) |
+| Mensageria | Orleans (Microsoft Orleans) |
+| Banco | Oracle / InMemory (EF Core) |
+| Autenticacao | JWT + 2FA via Email |
+| Infra | Docker Swarm / Nginx |
 
-Histórico: Rastreamento completo de ações (localStorage)
+---
 
-Export/Import: JSON portável entre ambientes
+## Modulos
 
-Deploy GitOps: URL do GitHub Raw carrega configuração remota
+| Modulo | Porta | Cor | Funcao |
+|--------|-------|-----|--------|
+| **Blue Shield** | 5073 | Azul (`#6ba4d6`) | Defesa, SIEM, Assets, Vulns, Incidentes |
+| **Red Exploit** | 5074 | Vermelho (`#d97a7a`) | Pentest, Scans, Exploits, Payloads |
+| **Violet Lab** | 5075 | Purpura (`#a89dd4`) | Laboratorios isolados, Sandbox, Honeypot |
+| **Silver Bullet** | 5076 | Cinza (`#b8bdc4`) | Orquestracao IA, Workflows, Obsidian |
 
-Multi-tenant: Cada cliente com seu próprio arquivo de config
+---
 
-🔄 Fluxo GitOps
-text
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│  VIOLET DEV  │     │    GITHUB    │     │  VIOLET PROD │
-│              │     │              │     │              │
-│ Config labs  │────▶│  push JSON   │────▶│  pull JSON   │
-│ Export JSON  │     │  versionado  │     │  Deploy auto │
-└──────────────┘     └──────────────┘     └──────────────┘
-🖥️ Sistemas Operacionais
-OS	Imagem Docker
-Kali Linux	kalilinux/kali-rolling:latest
-Ubuntu 22.04	ubuntu:22.04
-Debian 12	debian:12
-Windows Server	mcr.microsoft.com/windows/servercore:ltsc2022
-Metasploitable	tleemcphilamy/metasploitable2:latest
-🔒 Rede
-Modo	Descrição
-isolated	Isolamento total (VLAN)
-bridge	Layer 2 Bridge
-nat	NAT Gateway compartilhado
-📊 Histórico
-Toda ação é registrada com timestamp:
+## Arquitetura
+┌──────────────────────────────────────────────┐
+│ Nginx (Porta 80/443) │
+│ Frontend Estatico (HTMX + CSS) │
+└────────────┬──────┬──────┬──────┬────────────┘
+│ │ │ │
+5073 5074 5075 5076
+│ │ │ │
+┌────┴──────┴──────┴──────┴────┐
+│ Docker Swarm │
+│ Blue │ Red │ Violet │ Silver │
+└──────────────────────────────┘
 
-DEPLOYED - Nova instância criada
+---
 
-START/STOP - Toggle de estado
+## Instalacao
 
-SNAPSHOT - Snapshot salvo
+### Pre-requisitos
 
-MODIFIED - Configuração alterada
+- .NET 8 SDK
+- Node.js 18+ (apenas para http-server local)
+- Redis (opcional, para cache)
+- Oracle Database (opcional, fallback InMemory)
 
-DESTROYED - Instância removida
+### Backend
 
-PURGED - Limpeza total
+```bash
+cd backend
+dotnet restore
+dotnet run --project Rapsodia.Blue
+dotnet run --project Rapsodia.Red
+dotnet run --project Rapsodia.Violet
+dotnet run --project Rapsodia.Silver
 
-🎨 Design
-Fonte: JetBrains Mono
+Funcionalidades
+Blue Shield
+Dashboard com grid expansivel (duplo clique)
 
-Cor principal: #8f70f2 (Violet)
+CRUD de Assets, Vulnerabilidades, Incidentes
 
-Background: #0d1117
+Grafo de topologia com redimensionamento
 
-Cards: #161b22 
+Integracoes e Health Check
+
+Red Exploit
+Multi-target com persistencia localStorage
+
+14 ferramentas (Nmap, Metasploit, Impacket, etc.)
+
+Modal com configuracao de ferramenta e target preenchido
+
+Playbooks de scan → exploit
+
+Violet Lab
+Provisionamento de labs isolados (Kali, Windows, Ubuntu)
+
+Snapshot e export/import de configuracao
+
+Deploy via GitHub (JSON remoto)
+
+Honeypot e Cyber Range
+
+Silver AI
+Orquestracao multi-agente (Blue, Red, Violet, Silver)
+
+Workflows: Scan, Pentest, Full, AI Analysis
+
+Obsidian Knowledge Vault com busca e CRUD
+
+Console de chat com IA
+
+Status do Projeto
+https://img.shields.io/badge/status-HML-yellow
+https://img.shields.io/badge/.NET-8.0-blue
+https://img.shields.io/badge/HTMX-1.9.12-green
