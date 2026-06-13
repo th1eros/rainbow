@@ -7,30 +7,28 @@ on:
     branches: [main]
 
 jobs:
-  build-backend:
+  build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        project: [Blue, Red, Violet, Silver]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-      - name: Restore
-        run: dotnet restore Rapsodia.${{ matrix.project }}/Rapsodia.${{ matrix.project }}.csproj
-      - name: Build
-        run: dotnet build Rapsodia.${{ matrix.project }}/Rapsodia.${{ matrix.project }}.csproj --configuration Release --no-restore
-      - name: Publish
-        run: dotnet publish Rapsodia.${{ matrix.project }}/Rapsodia.${{ matrix.project }}.csproj -c Release -o publish/${{ matrix.project }}
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-${{ matrix.project }}
-          path: publish/${{ matrix.project }}
+      - name: Restore all
+        run: |
+          dotnet restore Rapsodia.Blue/Rapsodia.Blue.csproj
+          dotnet restore Rapsodia.Red/Rapsodia.Red.csproj
+          dotnet restore Rapsodia.Violet/Rapsodia.Violet.csproj
+          dotnet restore Rapsodia.Silver/Rapsodia.Silver.csproj
+      - name: Build all
+        run: |
+          dotnet build Rapsodia.Blue/Rapsodia.Blue.csproj --configuration Release --no-restore
+          dotnet build Rapsodia.Red/Rapsodia.Red.csproj --configuration Release --no-restore
+          dotnet build Rapsodia.Violet/Rapsodia.Violet.csproj --configuration Release --no-restore
+          dotnet build Rapsodia.Silver/Rapsodia.Silver.csproj --configuration Release --no-restore
 
   deploy:
-    needs: build-backend
+    needs: build
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     steps:
