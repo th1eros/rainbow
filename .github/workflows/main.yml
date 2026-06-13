@@ -14,18 +14,10 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-      - name: Restore all
-        run: |
-          dotnet restore Rapsodia.Blue/Rapsodia.Blue.csproj
-          dotnet restore Rapsodia.Red/Rapsodia.Red.csproj
-          dotnet restore Rapsodia.Violet/Rapsodia.Violet.csproj
-          dotnet restore Rapsodia.Silver/Rapsodia.Silver.csproj
-      - name: Build all
-        run: |
-          dotnet build Rapsodia.Blue/Rapsodia.Blue.csproj --configuration Release --no-restore
-          dotnet build Rapsodia.Red/Rapsodia.Red.csproj --configuration Release --no-restore
-          dotnet build Rapsodia.Violet/Rapsodia.Violet.csproj --configuration Release --no-restore
-          dotnet build Rapsodia.Silver/Rapsodia.Silver.csproj --configuration Release --no-restore
+      - name: Restore
+        run: dotnet restore Rapsodia.csproj
+      - name: Build
+        run: dotnet build Rapsodia.csproj --configuration Release --no-restore
 
   deploy:
     needs: build
