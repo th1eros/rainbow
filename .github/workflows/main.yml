@@ -1,4 +1,4 @@
-name: Main
+name: Main CI/CD
 
 on:
   push:
@@ -38,9 +38,9 @@ jobs:
       - name: Deploy to OCI
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ secrets.OCI_HOST }}
-          username: ${{ secrets.OCI_USER }}
-          key: ${{ secrets.OCI_SSH_KEY }}
+          host: ${{ secrets.REMOTE_HOST }}
+          username: ${{ secrets.REMOTE_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd /var/www/abitab
             git pull origin main
