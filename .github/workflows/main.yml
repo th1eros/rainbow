@@ -16,6 +16,6 @@ jobs:
           username: ${{ secrets.REMOTE_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /home/ubuntu/samsara
+            cd /home/ubuntu/th1er/samsara
             git pull origin main
             docker compose up -d --force-recreate
