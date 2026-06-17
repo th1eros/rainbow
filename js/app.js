@@ -1,11 +1,70 @@
-const API = {
-    blue: window.__API_BLUE__ || 'http://localhost:5073',
-    red: window.__API_RED__ || 'http://localhost:5074',
-    violet: window.__API_VIOLET__ || 'http://localhost:5075',
-    silver: window.__API_SILVER__ || 'http://localhost:5076'
+var host = window.location.hostname;
+var isDev = host === 'localhost' || host === '127.0.0.1';
+var params = new URLSearchParams(window.location.search);
+var modulesParam = params.get('modules');
+var activeModules = modulesParam
+    ? modulesParam.split(',')
+    : ['blue', 'red', 'violet', 'silver'];
+
+var API = {
+    blue: isDev ? 'http://localhost:5073' : 'https://' + host + '/api',
+    red: isDev ? 'http://localhost:5074' : 'https://' + host + '/api',
+    violet: isDev ? 'http://localhost:5075' : 'https://' + host + '/api',
+    silver: isDev ? 'http://localhost:5076' : 'https://' + host + '/api'
 };
 
-const api = {
+function filterModules() {
+    var allTabs = ['blue', 'red', 'violet', 'silver'];
+    allTabs.forEach(function(mod) {
+        var tab = document.querySelector('[data-tab="' + mod + '"]');
+        var panel = document.getElementById('panel-' + mod);
+        if (activeModules.indexOf(mod) === -1) {
+            if (tab) tab.style.display = 'none';
+            if (panel) panel.style.display = 'none';
+        }
+    });
+
+    var agentSelect = document.getElementById('chat-agent');
+    if (agentSelect) {
+        var options = agentSelect.querySelectorAll('option');
+        options.forEach(function(opt) {
+            var agentModule = opt.value;
+            if (activeModules.indexOf(agentModule) === -1) {
+                opt.style.display = 'none';
+            } else {
+                opt.style.display = '';
+            }
+        });
+        var firstVisible = agentSelect.querySelector('option:not([style*="display: none"])');
+        if (firstVisible) {
+            agentSelect.value = firstVisible.value;
+            changeAgent();
+        }
+    }
+
+    var quickButtons = document.querySelectorAll('.chat-quick button');
+    var agentCommands = {
+        scan: 'red',
+        exploit: 'red',
+        report: 'blue',
+        lab: 'violet'
+    };
+    quickButtons.forEach(function(btn) {
+        var cmd = btn.textContent.replace('_', '').toLowerCase();
+        var agent = agentCommands[cmd];
+        if (agent && activeModules.indexOf(agent) === -1) {
+            btn.style.display = 'none';
+        } else {
+            btn.style.display = '';
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    filterModules();
+});
+
+var api = {
     token: function() {
         return localStorage.getItem('abitat_token');
     },
