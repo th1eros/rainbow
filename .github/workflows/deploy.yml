@@ -2,42 +2,54 @@ name: Deploy Rapsodia
 
 on:
   push:
-    branches: [develop, main]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Ambiente'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'staging' }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Set target
         id: target
         run: |
-          if [[ ${{ github.ref }} == 'refs/heads/main' ]]; then
-            echo "HOST=${{ secrets.PROD_HOST }}" >> $GITHUB_OUTPUT
+          if [[ "${{ job.environment }}" == "production" ]]; then
+            echo "IMAGE=abitat-frontend:production" >> $GITHUB_OUTPUT
             echo "DOMAIN=th1eros.com" >> $GITHUB_OUTPUT
+            echo "COMPOSE_DIR=/opt/rapsodia-production" >> $GITHUB_OUTPUT
           else
-            echo "HOST=${{ secrets.STAGING_HOST }}" >> $GITHUB_OUTPUT
+            echo "IMAGE=malebolge-frontend:staging" >> $GITHUB_OUTPUT
             echo "DOMAIN=th1eros.dev" >> $GITHUB_OUTPUT
+            echo "COMPOSE_DIR=/opt/rapsodia-staging" >> $GITHUB_OUTPUT
           fi
 
       - name: Build Docker image
-        run: docker build -t abitat-frontend:latest .
+        run: docker build -t ${{ steps.target.outputs.IMAGE }} .
 
       - name: Save and transfer
         run: |
-          docker save abitat-frontend:latest -o abitat-frontend.tar
-          scp -o StrictHostKeyChecking=no abitat-frontend.tar ${{ secrets.REMOTE_USER }}@${{ steps.target.outputs.HOST }}:/tmp/
+          docker save ${{ steps.target.outputs.IMAGE }} -o frontend.tar
+          scp -o StrictHostKeyChecking=no frontend.tar ${{ secrets.REMOTE_HOST }}:/tmp/
 
       - name: Deploy
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ steps.target.outputs.HOST }}
-          username: ${{ secrets.REMOTE_USER }}
+          host: ${{ secrets.REMOTE_HOST }}
+          username: ${{ vars.REMOTE_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            docker load < /tmp/abitat-frontend.tar
-            cd /opt/rapsodia
+            docker load < /tmp/frontend.tar
+            cd ${{ steps.target.outputs.COMPOSE_DIR }}
             docker compose up -d --force-recreate
 
       - name: Healthcheck
