@@ -1,8 +1,6 @@
 name: Deploy Rapsodia
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       environment:
@@ -14,46 +12,33 @@ on:
           - production
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment || 'staging' }}
+    environment: ${{ github.event.inputs.environment }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set target
-        id: target
-        run: |
-          if [[ "${{ job.environment }}" == "production" ]]; then
-            echo "IMAGE=abitat-frontend:production" >> $GITHUB_OUTPUT
-            echo "DOMAIN=th1eros.com" >> $GITHUB_OUTPUT
-            echo "COMPOSE_DIR=/opt/rapsodia-production" >> $GITHUB_OUTPUT
-          else
-            echo "IMAGE=malebolge-frontend:staging" >> $GITHUB_OUTPUT
-            echo "DOMAIN=th1eros.dev" >> $GITHUB_OUTPUT
-            echo "COMPOSE_DIR=/opt/rapsodia-staging" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Build Docker image
-        run: docker build -t ${{ steps.target.outputs.IMAGE }} .
-
-      - name: Save and transfer
-        run: |
-          docker save ${{ steps.target.outputs.IMAGE }} -o frontend.tar
-          scp -o StrictHostKeyChecking=no frontend.tar ${{ secrets.REMOTE_HOST }}:/tmp/
-
-      - name: Deploy
+      - name: Deploy to server
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.REMOTE_HOST }}
           username: ${{ vars.REMOTE_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            docker load < /tmp/frontend.tar
-            cd ${{ steps.target.outputs.COMPOSE_DIR }}
-            docker compose up -d --force-recreate
+            if [[ "${{ job.environment }}" == "production" ]]; then
+              cd /opt/rapsodia-production
+            else
+              cd ~/th1er/malebolge/Rainbow
+            fi
+            git pull origin develop
+            pkill http-server
+            nohup npx http-server . -p 8081 -c-1 > /dev/null 2>&1 &
 
       - name: Healthcheck
         run: |
-          for module in blue red violet silver; do
-            curl -f https://$module.${{ steps.target.outputs.DOMAIN }} || exit 1
-          done
+          if [[ "${{ job.environment }}" == "production" ]]; then
+            DOMAIN=th1eros.com
+          else
+            DOMAIN=th1eros.dev
+          fi
+          curl -f https://rapsodia.$DOMAIN || exit 1
