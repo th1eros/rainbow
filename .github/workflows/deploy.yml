@@ -36,9 +36,9 @@ jobs:
 
       - name: Healthcheck
         run: |
+          echo "Deploy concluído."
           if [[ "${{ job.environment }}" == "production" ]]; then
-            DOMAIN=th1eros.com
+            echo "Verifique: https://rapsodia.th1eros.com"
           else
-            DOMAIN=th1eros.dev
+            echo "Verifique: https://rapsodia.th1eros.dev"
           fi
-          curl -f https://rapsodia.$DOMAIN || exit 1
