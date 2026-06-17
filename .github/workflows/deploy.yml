@@ -1,0 +1,47 @@
+name: Deploy Rapsodia
+
+on:
+  push:
+    branches: [develop, main]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set target
+        id: target
+        run: |
+          if [[ ${{ github.ref }} == 'refs/heads/main' ]]; then
+            echo "HOST=${{ secrets.PROD_HOST }}" >> $GITHUB_OUTPUT
+            echo "DOMAIN=th1eros.com" >> $GITHUB_OUTPUT
+          else
+            echo "HOST=${{ secrets.STAGING_HOST }}" >> $GITHUB_OUTPUT
+            echo "DOMAIN=th1eros.dev" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build Docker image
+        run: docker build -t abitat-frontend:latest .
+
+      - name: Save and transfer
+        run: |
+          docker save abitat-frontend:latest -o abitat-frontend.tar
+          scp -o StrictHostKeyChecking=no abitat-frontend.tar ${{ secrets.REMOTE_USER }}@${{ steps.target.outputs.HOST }}:/tmp/
+
+      - name: Deploy
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ steps.target.outputs.HOST }}
+          username: ${{ secrets.REMOTE_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            docker load < /tmp/abitat-frontend.tar
+            cd /opt/rapsodia
+            docker compose up -d --force-recreate
+
+      - name: Healthcheck
+        run: |
+          for module in blue red violet silver; do
+            curl -f https://$module.${{ steps.target.outputs.DOMAIN }} || exit 1
+          done

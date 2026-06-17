@@ -1,17 +1,14 @@
 services:
-  rainbow:
-    image: nginx:alpine
-    volumes:
-      - ./Rainbow:/usr/share/nginx/html
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+  frontend:
+    build: .
+    image: frontend:latest
+    ports:
+      - "${PORT_START:-10001}:80"
+      - "${PORT_START:-10001}:80"
+      - "${PORT_START:-10001}:80"
+      - "${PORT_START:-10001}:80"
     networks:
-      - traefik-public
-    deploy:
-      labels:
-        - "traefik.enable=true"
-        - "traefik.http.routers.rainbow.rule=Host(`hml.abitab.com`)"
-        - "traefik.http.routers.rainbow.entrypoints=web"
-        - "traefik.http.services.rainbow.loadbalancer.server.port=80"
+      - app_net
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:80"]
       interval: 30s
@@ -19,5 +16,5 @@ services:
       retries: 3
 
 networks:
-  traefik-public:
+  app_net:
     external: true
