@@ -1,0 +1,77 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Copyright (C) 2026 Th1eros -->
+
+<div class="blue-card">
+    <div class="card-header">
+        <h3>SYSTEM USERS</h3>
+        <span class="panel-tag">ADMIN</span>
+    </div>
+
+    <div class="blue-stats-strip">
+        <div class="strip-card">
+            <span class="strip-label">TOTAL USERS</span>
+            <span class="strip-value" id="stat-total-users">--</span>
+            <div class="progress-bar"><div class="progress-fill" style="width:100%; background:var(--accent-blue);"></div></div>
+        </div>
+        <div class="strip-card" hx-get="/blue/admin/users/form.html" hx-target="#panel-blue" hx-swap="innerHTML">
+            <span class="strip-label">NEW USER</span>
+            <span class="strip-value">+</span>
+            <div class="progress-bar"><div class="progress-fill" style="width:100%; background:var(--accent-green);"></div></div>
+        </div>
+    </div>
+
+    <table class="blue-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>USERNAME</th>
+                <th>ROLE</th>
+                <th>MODULES</th>
+                <th>STATUS</th>
+                <th>ACTIONS</th>
+            </tr>
+        </thead>
+        <tbody id="users-list" hx-get="/api/Admin/users" hx-trigger="load, usersUpdated from:body" hx-swap="none">
+            <tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-muted);">Loading users...</td></tr>
+        </tbody>
+    </table>
+
+    <div id="user-detail-panel" style="margin-top:16px;"></div>
+</div>
+
+<script>
+    function renderUsers(data) {
+        var list = document.getElementById('users-list');
+        if (data.success && data.data && data.data.items) {
+            document.getElementById('stat-total-users').textContent = data.data.totalCount;
+            list.innerHTML = data.data.items.map(function(u) {
+                var statusClass = u.isActive ? 'status-online' : 'status-offline';
+                var statusText = u.isActive ? 'ACTIVE' : 'DISABLED';
+                var modules = u.allowedModules || 'blue';
+                return '<tr>' +
+                    '<td>' + u.id + '</td>' +
+                    '<td><strong>' + u.username + '</strong></td>' +
+                    '<td><span class="panel-tag">' + (u.roles && u.roles.length ? u.roles[0] : 'Analyst').toUpperCase() + '</span></td>' +
+                    '<td>' + modules.split(',').map(function(m){ return '<span class="badge badge-' + m + '" style="margin-right:2px;">' + m.toUpperCase() + '</span>'; }).join('') + '</td>' +
+                    '<td><span class="status-dot ' + statusClass + '"></span> ' + statusText + '</td>' +
+                    '<td>' +
+                        '<button class="action-btn" hx-get="/blue/admin/users/form.html?id=' + u.id + '" hx-target="#panel-blue" hx-swap="innerHTML">EDIT</button> ' +
+                        (u.isActive 
+                            ? '<button class="action-btn btn-danger-light" hx-post="/api/Admin/users/' + u.id + '/disable" hx-headers=\'js:{"Authorization":"Bearer "+localStorage.getItem("malebolge_token")||localStorage.getItem("abitat_token")}\' hx-target="#users-list" hx-confirm="Disable ' + u.username + '?">DISABLE</button>'
+                            : '<button class="action-btn btn-success-light" hx-post="/api/Admin/users/' + u.id + '/enable" hx-headers=\'js:{"Authorization":"Bearer "+localStorage.getItem("malebolge_token")||localStorage.getItem("abitat_token")}\' hx-target="#users-list" hx-confirm="Enable ' + u.username + '?">ENABLE</button>') +
+                    '</td>' +
+                '</tr>';
+            }).join('');
+            htmx.process(list);
+        }
+    }
+
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.target.id === 'users-list' && evt.detail.xhr.status === 200) {
+            renderUsers(JSON.parse(evt.detail.xhr.responseText));
+        }
+        if (evt.detail.requestConfig.method === 'POST' && evt.detail.xhr.status === 200) {
+            htmx.trigger('#users-list', 'usersUpdated');
+        }
+    });
+</script>

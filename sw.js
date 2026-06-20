@@ -1,19 +1,49 @@
-const CACHE = 'abitat-v2';
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Copyright (C) 2026 Th1eros -->
+
+const CACHE = 'rapsodia-v1';
 const URLS = [
   '/',
   '/index.html',
   '/css/style.css',
-  '/assets/logo.png',
+  '/js/app.js',
+  '/aBit.png',
+  '/Male.png',
   '/manifest.json',
-  '/components/dashboard.html',
-  '/components/assets/list.html',
-  '/components/assets/create.html',
-  '/components/vulns/list.html',
-  '/components/vulns/create.html',
-  '/components/scans/list.html',
-  '/components/scans/start.html',
-  '/components/labs/list.html',
-  '/components/labs/deploy.html'
+  '/blue/dashboard.html',
+  '/blue/analyzer.html',
+  '/blue/graph.html',
+  '/blue/health.html',
+  '/blue/notifications.html',
+  '/blue/profile.html',
+  '/blue/admin/form.html',
+  '/blue/admin/list.html',
+  '/blue/assets/form.html',
+  '/blue/assets/list.html',
+  '/blue/domains/monitor.html',
+  '/blue/incidents/form.html',
+  '/blue/incidents/list.html',
+  '/blue/integrations/form.html',
+  '/blue/integrations/list.html',
+  '/blue/reports/form.html',
+  '/blue/reports/list.html',
+  '/blue/vulns/form.html',
+  '/blue/vulns/list.html',
+  '/red/dashboard.html',
+  '/red/monitor.html',
+  '/red/tool.html',
+  '/red/exploits/list.html',
+  '/red/scans/list.html',
+  '/violet/dashboard.html',
+  '/violet/monitor.html',
+  '/violet/labs/create.html',
+  '/violet/labs/list.html',
+  '/silver/dashboard.html',
+  '/silver/monitor.html',
+  '/silver/agents/create.html',
+  '/silver/agents/list.html',
+  '/silver/obsidian/list.html',
+  '/silver/orchestration/run.html'
 ];
 
 self.addEventListener('install', e => {
@@ -23,6 +53,9 @@ self.addEventListener('install', e => {
 });
 
 self.addEventListener('fetch', e => {
+  if (e.request.method !== 'GET') return;
+  if (e.request.url.includes('/api/')) return;
+  
   e.respondWith(
     caches.match(e.request).then(r => r || fetch(e.request))
   );

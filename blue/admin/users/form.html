@@ -1,0 +1,129 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Copyright (C) 2026 Th1eros -->
+
+<div class="blue-card" style="max-width:700px; margin: 0 auto;">
+    <div class="card-header">
+        <h3 id="user-form-title">CREATE SYSTEM USER</h3>
+        <span class="panel-tag">ADMIN</span>
+    </div>
+
+    <form id="user-form" hx-post="/api/Admin/users" hx-target="#user-result" hx-swap="innerHTML">
+        <input type="hidden" name="id" id="user-id">
+        <div class="form-row">
+            <div class="form-group flex-1">
+                <label>USERNAME</label>
+                <input type="text" name="username" id="user-username" class="form-control" required autocomplete="off">
+            </div>
+            <div class="form-group flex-1">
+                <label>EMAIL</label>
+                <input type="email" name="email" id="user-email" class="form-control" required autocomplete="off">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group flex-1">
+                <label>FULL NAME</label>
+                <input type="text" name="fullName" id="user-fullname" class="form-control">
+            </div>
+            <div class="form-group flex-1">
+                <label>PASSWORD</label>
+                <input type="password" name="password" id="user-password" class="form-control" required>
+                <div style="font-size:9px; color:var(--text-muted); margin-top:4px;">Leave blank to keep current when editing</div>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group flex-1">
+                <label>ROLE</label>
+                <select name="role" id="user-role" class="form-control">
+                    <option value="Analyst">ANALYST</option>
+                    <option value="Manager">MANAGER</option>
+                    <option value="Admin">ADMIN</option>
+                </select>
+                <div style="font-size:9px; color:var(--accent-red); margin-top:4px;">Only one Admin allowed</div>
+            </div>
+            <div class="form-group flex-1">
+                <label>ALLOWED MODULES</label>
+                <div class="tools-checkbox-grid" style="margin-top:8px;">
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="allowedModules" value="blue" checked> BLUE
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="allowedModules" value="red"> RED
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="allowedModules" value="violet"> VIOLET
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="allowedModules" value="silver"> SILVER
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex-row flex-end" style="margin-top:16px; gap: 8px;">
+            <button type="button" class="action-btn btn-secondary" hx-get="/blue/admin/users/list.html" hx-target="#panel-blue" hx-swap="innerHTML">CANCEL</button>
+            <button type="submit" class="action-btn btn-primary">SAVE USER</button>
+        </div>
+    </form>
+    <div id="user-result" style="margin-top:14px;"></div>
+</div>
+
+<script>
+    var urlParams = new URLSearchParams(window.location.search);
+    var userId = urlParams.get('id');
+    
+    if (userId) {
+        document.getElementById('user-form-title').textContent = 'EDIT SYSTEM USER';
+        document.getElementById('user-password').removeAttribute('required');
+        fetch('/api/Admin/users/' + userId, {
+            headers: {'Authorization': 'Bearer ' + (localStorage.getItem('malebolge_token') || localStorage.getItem('abitat_token'))}
+        })
+        .then(r => r.json())
+        .then(d => {
+            if (d.success && d.data) {
+                document.getElementById('user-id').value = d.data.id;
+                document.getElementById('user-username').value = d.data.username;
+                document.getElementById('user-email').value = d.data.email || '';
+                document.getElementById('user-fullname').value = d.data.fullName || '';
+                document.getElementById('user-role').value = (d.data.roles && d.data.roles.length) ? d.data.roles[0] : 'Analyst';
+                var modules = (d.data.allowedModules || 'blue').split(',');
+                document.querySelectorAll('input[name="allowedModules"]').forEach(function(cb) {
+                    cb.checked = modules.indexOf(cb.value) !== -1;
+                });
+                document.getElementById('user-form').setAttribute('hx-put', '/api/Admin/users/' + userId);
+                document.getElementById('user-form').removeAttribute('hx-post');
+            }
+        });
+    }
+
+    document.getElementById('user-form').addEventListener('htmx:beforeRequest', function(evt) {
+        var fd = new FormData(evt.detail.elt);
+        var obj = { allowedModules: [] };
+        fd.forEach(function(value, key) {
+            if (key === 'allowedModules') {
+                obj.allowedModules.push(value);
+            } else {
+                obj[key] = value;
+            }
+        });
+        if (!obj.password) delete obj.password;
+        evt.detail.xhr.setRequestHeader('Authorization', 'Bearer ' + (localStorage.getItem('malebolge_token') || localStorage.getItem('abitat_token')));
+        evt.detail.xhr.setRequestHeader('Content-Type', 'application/json');
+        evt.detail.xhr.send(JSON.stringify(obj));
+        evt.preventDefault();
+    });
+
+    document.getElementById('user-form').addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.xhr.status === 200) {
+            var resp = JSON.parse(evt.detail.xhr.responseText);
+            if (resp.success) {
+                document.getElementById('user-result').innerHTML = '<div style="color:var(--accent-green); font-weight:bold; font-size:11px;">USER ' + (userId ? 'UPDATED' : 'CREATED') + ' SUCCESSFULLY</div>';
+                setTimeout(function() {
+                    htmx.ajax('GET', '/blue/admin/users/list.html', {target: '#panel-blue', swap: 'innerHTML'});
+                }, 800);
+            } else {
+                document.getElementById('user-result').innerHTML = '<div style="color:var(--accent-red); font-weight:bold; font-size:11px;">ERROR: ' + resp.message + '</div>';
+            }
+        }
+    });
+</script>

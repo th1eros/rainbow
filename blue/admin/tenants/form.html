@@ -1,0 +1,73 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Copyright (C) 2026 Th1eros -->
+
+<div class="blue-card" style="max-width:600px; margin: 0 auto;">
+    <div class="card-header">
+        <h3>PROVISION INFRASTRUCTURE PACKAGE</h3>
+        <span class="panel-tag">ORCHESTRATOR</span>
+    </div>
+
+    <form id="package-form" hx-post="/api/Admin/provision" hx-target="#provision-result" hx-swap="innerHTML">
+        <div class="form-group">
+            <label>CLIENT NAME</label>
+            <input type="text" name="clientName" class="form-control" required autocomplete="off">
+        </div>
+        <div class="form-group">
+            <label>CLIENT EMAIL</label>
+            <input type="email" name="clientEmail" class="form-control" required autocomplete="off">
+        </div>
+        <div class="form-row">
+            <div class="form-group flex-1">
+                <label>PLAN</label>
+                <select name="plan" class="form-control">
+                    <option value="trial">TRIAL (7d)</option>
+                    <option value="basic">SOC BASIC</option>
+                    <option value="pro">SOC PRO</option>
+                    <option value="pentest">PENTEST</option>
+                    <option value="full">FULL</option>
+                </select>
+            </div>
+            <div class="form-group flex-1">
+                <label>VALIDITY (DAYS)</label>
+                <input type="number" name="validityDays" value="7" class="form-control" required>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group flex-1">
+                <label>ADMIN USER</label>
+                <input type="text" name="adminUser" value="admin" class="form-control" required autocomplete="off">
+            </div>
+            <div class="form-group flex-1">
+                <label>ADMIN PASSWORD</label>
+                <input type="password" name="adminPassword" value="Admin@123" class="form-control" required>
+            </div>
+        </div>
+
+        <div class="flex-row flex-end" style="margin-top:16px; gap: 8px;">
+            <button type="button" class="action-btn btn-secondary" hx-get="/blue/admin/tenants/list.html" hx-target="#panel-blue" hx-swap="innerHTML">CANCEL</button>
+            <button type="submit" class="action-btn btn-primary">PROVISION NOW</button>
+        </div>
+    </form>
+    <div id="provision-result" style="margin-top:14px;"></div>
+</div>
+
+<script>
+    document.getElementById('package-form').addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.xhr.status === 200) {
+            var resp = JSON.parse(evt.detail.xhr.responseText);
+            if (resp.success) {
+                document.getElementById('provision-result').innerHTML = 
+                    '<div style="color:var(--accent-green); font-weight:bold; font-size:11px; margin-bottom:8px;">ENVIRONMENT CLUSTER PROVISIONED SUCCESSFULLY</div>' +
+                    '<div class="blue-card" style="background:var(--bg-main); font-size:11px; border-color: var(--accent-green);">' +
+                    '<h5 style="color:var(--text-main); margin-top:0;">ACCESS CREDENTIALS</h5>' +
+                    '<div><strong>Dashboard:</strong> <a href="' + resp.data.dashboardUrl + '" target="_blank" style="color:var(--accent-blue);">' + resp.data.dashboardUrl + '</a></div>' +
+                    '<div><strong>User:</strong> <code>' + resp.data.adminUser + '</code></div>' +
+                    '<div><strong>Password:</strong> <code>' + resp.data.adminPassword + '</code></div>' +
+                    '<div><strong>Expires:</strong> ' + new Date(resp.data.expiresAt).toLocaleDateString('pt-BR') + '</div>' +
+                    '</div>';
+            } else {
+                document.getElementById('provision-result').innerHTML = '<div style="color:var(--accent-red); font-weight:bold; font-size:11px;">PROVISIONING FAILED</div>';
+            }
+        }
+    });
+</script>

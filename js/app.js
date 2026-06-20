@@ -1,10 +1,40 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Copyright (C) 2026 Th1eros -->
+
 var host = window.location.hostname;
 var isDev = host === 'localhost' || host === '127.0.0.1';
+var isStaging = host.includes('.dev');
+var TOKEN_KEY = isDev ? 'abitat_token' : (isStaging ? 'malebolge_token' : 'abitat_token');
 var params = new URLSearchParams(window.location.search);
 var modulesParam = params.get('modules');
-var activeModules = modulesParam
-    ? modulesParam.split(',')
-    : ['blue', 'red', 'violet', 'silver'];
+
+var defaultModule = 'blue';
+if (host.startsWith('blue.')) defaultModule = 'blue';
+else if (host.startsWith('red.')) defaultModule = 'red';
+else if (host.startsWith('violet.')) defaultModule = 'violet';
+else if (host.startsWith('silver.')) defaultModule = 'silver';
+else if (host.startsWith('rapsodia.')) defaultModule = '';
+
+if (modulesParam) {
+    var requestedModules = modulesParam.split(',').map(function(m) { return m.trim(); });
+    if (defaultModule && requestedModules.indexOf(defaultModule) === -1) {
+        requestedModules.unshift(defaultModule);
+    }
+    if (requestedModules.indexOf('blue') === -1) {
+        requestedModules.unshift('blue');
+    }
+    modulesParam = requestedModules.join(',');
+} else {
+    var parts = ['blue'];
+    if (defaultModule && defaultModule !== 'blue') {
+        parts.push(defaultModule);
+    } else if (!defaultModule) {
+        parts = ['blue', 'red', 'violet', 'silver'];
+    }
+    modulesParam = parts.join(',');
+}
+
+var activeModules = modulesParam.split(',');
 
 var API = {
     blue: isDev ? 'http://localhost:5073' : 'https://' + host + '/api',
@@ -62,11 +92,27 @@ function filterModules() {
 
 document.addEventListener('DOMContentLoaded', function() {
     filterModules();
+
+    // Ativa a aba do módulo do domínio (se houver), disparando o clique nativo
+    if (defaultModule) {
+        var tabToActivate = document.querySelector('[data-tab="' + defaultModule + '"]');
+        if (tabToActivate) {
+            tabToActivate.click();
+        }
+    }
+
+    if (!localStorage.getItem(TOKEN_KEY)) {
+        document.getElementById('panel-blue').style.display = '';
+        setTimeout(function() {
+            var scroll = document.getElementById('main-scroll');
+            if (scroll) scroll.scrollLeft = 0;
+        }, 500);
+    }
 });
 
 var api = {
     token: function() {
-        return localStorage.getItem('abitat_token');
+        return localStorage.getItem(TOKEN_KEY);
     },
     headers: function() {
         return {
@@ -126,18 +172,18 @@ document.body.addEventListener('htmx:afterRequest', function(e) {
 
     try {
         var d = JSON.parse(e.detail.xhr.responseText);
-        if (p.indexOf('/api/auth/authorize') !== -1 && d.success && d.data && d.data.requires2FA) {
+        if (p.indexOf('/Auth/authorize') !== -1 && d.success && d.data && d.data.requires2FA) {
             if (typeof render2FA === 'function') {
                 render2FA(d.data.username || 'admin');
             }
         }
-        if (p.indexOf('/api/auth/verify-2fa') !== -1 && d.success && d.data && d.data.token) {
-            localStorage.setItem('abitat_token', d.data.token);
+        if (p.indexOf('/Auth/verify-2fa') !== -1 && d.success && d.data && d.data.token) {
+            localStorage.setItem(TOKEN_KEY, d.data.token);
             if (typeof showDashboard === 'function') {
                 showDashboard();
             }
         }
-        if (p.indexOf('/api/auth/register') !== -1 && d.success) {
+        if (p.indexOf('/Auth/register') !== -1 && d.success) {
             if (typeof renderLogin === 'function') {
                 renderLogin();
             }
@@ -154,7 +200,7 @@ document.body.addEventListener('htmx:responseError', function(e) {
 });
 
 function logout() {
-    localStorage.removeItem('abitat_token');
+    localStorage.removeItem(TOKEN_KEY);
     if (typeof updateHeaderVisibility === 'function') {
         updateHeaderVisibility();
     }
@@ -167,4 +213,8 @@ function logout() {
     if (typeof renderLogin === 'function') {
         renderLogin();
     }
+}
+
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js');
 }
